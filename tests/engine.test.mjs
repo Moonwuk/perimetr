@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newGame,applyAction,viewGame,actionStatus,cardReadiness,botAction,deploymentOf,scanArea,incomeOf,upgradeGame,CARDS,NODES,MONEY_GOAL,MAX_ROUNDS,BASE_INCOME} from '../lib/game/engine.ts';
+import {newGame,applyAction,viewGame,actionStatus,cardReadiness,botAction,deploymentOf,scanArea,incomeOf,upgradeGame,CARDS,MONEY_GOAL,MAX_ROUNDS,BASE_INCOME,planAttacks} from '../lib/game/engine.ts';
 const card=(card,node,side='enemy')=>({type:'card',card,node,side});
 const end=g=>applyAction(g,g.turn,{type:'end'});
 function ready(seed=12){let g=newGame('local',undefined,seed);for(let actor=0;actor<2;actor++)g=applyAction(g,actor,{type:'deploy',deployment:deploymentOf(g.players[actor])});return g;}
@@ -49,7 +49,7 @@ test('isolation blocks routes without erasing access; repair cannot refund lost 
  assert.equal(incomeOf(g.players[0]),180);g=applyAction(g,0,{type:'restore',node:'web',side:'own'});
  assert.equal(g.players[0].nodes.web.access,2);assert.equal(incomeOf(g.players[0]),180);
  g=end(end(g));assert.equal(g.players[0].money,480);assert.equal(g.players[1].money,580);assert.equal(incomeOf(g.players[0]),280);
- g=applyAction(g,0,{type:'cleanse',node:'web',side:'own'});assert.equal(g.players[0].nodes.web.access,0);assert.equal(g.ap,1);
+ g=applyAction(g,0,{type:'cleanse',node:'web',side:'own'});assert.equal(g.players[0].nodes.web.access,0);assert.equal(g.ap,2);
  const h=ready();h.players[0].nodes.web.access=2;assert.throws(()=>applyAction(h,0,{type:'cleanse',node:'web',side:'own'}),/обнаружьте/);
 });
 
@@ -78,10 +78,10 @@ test('new servers cost money, occupy new cells, increase income and are attackab
   g=applyAction(g,0,{type:'card',card:'expand',side:'own',cell:free});assert.equal(g.players[0].nodes[`service${i}`].built,true);
   assert.equal(incomeOf(g.players[0]),280+i*100);
  }
- assert.equal(g.players[0].money,460);g.ap=3;assert.throws(()=>applyAction(g,0,{type:'card',card:'expand',side:'own',cell:g.players[0].layout.web}),/занята/);
+ assert.equal(g.players[0].money,280);g.ap=3;assert.throws(()=>applyAction(g,0,{type:'card',card:'expand',side:'own',cell:g.players[0].layout.web}),/занята/);
  const free=Array.from({length:25},(_,i)=>i).find(c=>!Object.values(g.players[0].layout).includes(c));assert.throws(()=>applyAction(g,0,{type:'card',card:'expand',side:'own',cell:free}),/три/);
  g=applyAction(g,0,card('optimize','service1','own'));g=applyAction(g,0,card('optimize','service1','own'));assert.equal(g.players[0].nodes.service1.income,180);
- assert.throws(()=>applyAction(g,0,card('optimize','service1','own')),/максимума/);
+ g.players[0].money=120;assert.throws(()=>applyAction(g,0,card('optimize','service1','own')),/максимума/);
  reveal(g,1,'service1');prepare(g,1,['ddos']);g=applyAction(g,1,card('ddos','service1'));assert.equal(g.players[0].nodes.service1.offline,true);
 });
 
@@ -96,11 +96,12 @@ test('DDoS, current-round loss and next-round repair are symmetric for either se
  }
 });
 
-test('sabotage needs access, cannot repeat on an offline node, and theft cannot overdraw cash',()=>{
- let g=ready();prepare(g,0,['operation','operation']);reveal(g,0,'control');g.players[1].nodes.control.access=0;
- assert.throws(()=>applyAction(g,0,card('operation','control')),/получите доступ/);g.players[1].nodes.control.access=1;g.players[1].money=35;
- g=applyAction(g,0,card('operation','control'));assert.equal(g.players[1].money,0);assert.equal(g.players[0].money,1000-CARDS.operation.money+35);assert(g.players[1].nodes.control.offline);
- g.ap=3;assert.throws(()=>applyAction(g,0,card('operation','control')),/отключён/);
+test('sabotage only damages income servers, needs access and cannot repeat without a new intrusion',()=>{
+ let g=ready();prepare(g,0,['operation','operation']);reveal(g,0,'web');
+ assert.throws(()=>applyAction(g,0,card('operation','web')),/получите доступ/);g.players[1].nodes.web.access=1;g.players[1].money=35;
+ g=applyAction(g,0,card('operation','web'));assert.equal(g.players[1].money,0);assert.equal(g.players[0].money,1000-CARDS.operation.money);assert(g.players[1].nodes.web.offline);assert.equal(g.players[1].nodes.web.access,0);
+ g.ap=3;assert.throws(()=>applyAction(g,0,card('operation','web')),/отключён/);
+ reveal(g,0,'control');g.players[1].nodes.control.access=1;assert.throws(()=>applyAction(g,0,card('operation','control')),/доходном сервере/);
 });
 
 test('victory resolves after both turns; base contracts and free repair prevent a dead end',()=>{
@@ -116,12 +117,12 @@ test('discard reshuffles, empty piles reject a paid draw, surrender works off tu
  let g=ready();g.players[0].hand=[];g.players[0].deck=[];g.players[0].discard=['entry','recon'];
  g=applyAction(g,0,{type:'draw'});assert.equal(g.players[0].hand.length,1);assert.equal(g.ap,2);assert.equal(g.players[0].discard.length,0);
  g.players[0].deck=[];assert.throws(()=>applyAction(g,0,{type:'draw'}),/Нет карт/);
- g=applyAction(g,1,{type:'surrender'});assert.equal(g.status,'finished');assert.equal(g.winner,0);assert.equal(Object.keys(CARDS).length,17);
+ g=applyAction(g,1,{type:'surrender'});assert.equal(g.status,'finished');assert.equal(g.winner,0);assert.equal(Object.keys(CARDS).length,18);
 });
 
 test('legacy rooms preserve hands and access while gaining new economic fields',()=>{
  const old=ready();old.version=1;old.players.forEach(p=>{p.score=4;delete p.money;delete p.layout;delete p.scanned;delete p.ready;p.intel=['web'];for(const id of ['service1','service2','service3'])delete p.nodes[id];});
- old.players[1].nodes.web.access=2;const updated=upgradeGame(old);assert.equal(updated.version,4);assert.equal(updated.players[0].money,500);assert.equal(updated.players[1].nodes.web.access,2);
+ old.players[1].nodes.web.access=2;const updated=upgradeGame(old);assert.equal(updated.version,5);assert.equal(updated.players[0].money,500);assert.equal(updated.players[1].nodes.web.access,2);
  assert.deepEqual(updated.players[0].hand,old.players[0].hand);assert.equal(viewGame(updated,0).players[1].layout.web,0);assert.equal(old.version,1);
 });
 
@@ -179,25 +180,26 @@ test('card readiness explains missing prerequisites and agrees with playable att
 });
 
 
-test('each of three counters blocks only its matching attack, symmetrically for both seats',()=>{
+test('specialized counters block their matching attack only, symmetrically for both seats',()=>{
  const protections=['shield','auth','backup'];
- for(const actor of [0,1])for(const attack of ['ddos','phishing','operation'])for(const guard of protections){
-  let g=ready();prepare(g,actor,[attack]);reveal(g,actor,'web');const victim=1-actor;
-  Object.assign(g.players[victim].nodes.web,{shield:0,auth:0,backup:false,sensor:false,access:attack==='operation'?1:0});
-  g.players[victim].nodes.web[guard]=guard==='backup'?true:1;
-  const protectedHit=guard==={ddos:'shield',phishing:'auth',operation:'backup'}[attack];
-  const preview=actionStatus(viewGame(g,actor),card(attack,'web'));assert.equal(preview.ok,true);
+ for(const actor of [0,1])for(const attack of ['ddos','phishing','operation','fraud'])for(const guard of protections){
+  const node=attack==='phishing'||attack==='fraud'?'workstation':'web';
+  let g=ready();prepare(g,actor,[attack]);reveal(g,actor,node);const victim=1-actor;
+  Object.assign(g.players[victim].nodes[node],{shield:0,auth:0,backup:false,sensor:false,access:attack==='operation'||attack==='fraud'?1:0});
+  g.players[victim].nodes[node][guard]=guard==='backup'?true:1;
+  const protectedHit=guard==={ddos:'shield',phishing:'auth',operation:'backup',fraud:'auth'}[attack];
+  const preview=actionStatus(viewGame(g,actor),card(attack,node));assert.equal(preview.ok,true);
   if(protectedHit)assert.match(preview.preview,/отразит/);
-  g=applyAction(g,actor,card(attack,'web'));const n=g.players[victim].nodes.web;
+  g=applyAction(g,actor,card(attack,node));const n=g.players[victim].nodes[node];
   if(protectedHit){
    assert.equal(g.players[victim].money,300);assert.equal(incomeOf(g.players[victim]),280);assert.equal(n.offline,false);assert.equal(n.access,0);assert.equal(n[guard],guard==='backup'?false:0);
    assert.equal(g.players[actor].money,1000-CARDS[attack].money);
   }else{
    assert.equal(n[guard],guard==='backup'?true:1);
-   const loss=attack==='ddos'?50:attack==='phishing'?60:100;
+   const loss={ddos:50,phishing:0,operation:100,fraud:80}[attack];
    assert.equal(g.players[victim].money,300-loss);
-   assert.equal(g.players[actor].money,1000-CARDS[attack].money+(attack==='phishing'?60:0));
-   assert.equal(n.offline,attack!=='phishing');assert.equal(incomeOf(g.players[victim]),attack==='phishing'?280:180);
+   assert.equal(g.players[actor].money,1000-CARDS[attack].money+(attack==='fraud'?80:0));
+   assert.equal(n.offline,attack==='ddos'||attack==='operation');assert.equal(incomeOf(g.players[victim]),attack==='phishing'||attack==='fraud'?280:180);
   }
   assert.equal(g.ap,2);assert.equal(g.players[actor].hand.length,0);
  }
@@ -216,10 +218,24 @@ test('sabotage is a two-card chain; admin is an optional damage upgrade and back
  assert.throws(()=>applyAction(g,0,card('operation','database')),/получите доступ/);
 });
 
-test('phishing works on a discovered server, cannot farm existing access, and theft is capped',()=>{
- let g=ready();prepare(g,0,['phishing','phishing']);reveal(g,0,'files');g.players[1].money=25;
- g=applyAction(g,0,card('phishing','files'));assert.equal(g.players[1].money,0);assert.equal(g.players[0].money,990);assert.equal(g.players[1].nodes.files.access,1);
- const snapshot=JSON.stringify(g);assert.throws(()=>applyAction(g,0,card('phishing','files')),/Повторный фишинг/);assert.equal(JSON.stringify(g),snapshot);
+test('phishing only enters account surfaces, never steals money and allows a one-action response',()=>{
+ for(const actor of [0,1])for(const node of ['workstation','control']){
+  let g=ready();prepare(g,actor,['phishing','phishing']);const victim=1-actor;reveal(g,actor,node);g.players[victim].money=25;g.players[victim].nodes[node].auth=0;
+  g=applyAction(g,actor,card('phishing',node));assert.equal(g.players[victim].money,25);assert.equal(g.players[actor].money,985);assert.equal(g.players[victim].nodes[node].access,1);assert.equal(viewGame(g,victim).players[victim].nodes[node].access,1);
+  const snapshot=JSON.stringify(g);assert.throws(()=>applyAction(g,actor,card('phishing',node)),/Повторный фишинг/);assert.equal(JSON.stringify(g),snapshot);
+  g=end(g);g=applyAction(g,victim,{type:'cleanse',node,side:'own'});assert.equal(g.ap,2);assert.equal(g.players[victim].nodes[node].access,0);
+ }
+ let g=ready();prepare(g,0,['phishing']);for(const node of ['web','database','files']){reveal(g,0,node);assert.throws(()=>applyAction(g,0,card('phishing',node)),/нацелен на сотрудника/);}
+});
+
+test('payment fraud requires workstation access, caps theft, consumes access and cannot farm or overdraw',()=>{
+ for(const cash of [0,25,300])for(const access of [1,2]){
+  let g=ready();prepare(g,0,['fraud','fraud']);reveal(g,0,'workstation');g.players[1].nodes.workstation.auth=0;g.players[1].money=cash;
+  assert.throws(()=>applyAction(g,0,card('fraud','workstation')),/получите доступ/);g.players[1].nodes.workstation.access=access;
+  g=applyAction(g,0,card('fraud','workstation'));const stolen=Math.min(80,cash);assert.equal(g.players[1].money,cash-stolen);assert.equal(g.players[0].money,965+stolen);assert.equal(g.players[1].nodes.workstation.access,0);assert.equal(g.players[1].nodes.workstation.offline,false);assert.equal(g.stats[0].stolen,stolen);
+  assert.throws(()=>applyAction(g,0,card('fraud','workstation')),/получите доступ/);
+ }
+ const g=ready();prepare(g,0,['fraud']);reveal(g,0,'control');g.players[1].nodes.control.access=2;assert.throws(()=>applyAction(g,0,card('fraud','control')),/рабочей станции/);
 });
 
 test('specialized setup respects a shared budget and scouting reveals counters without other secrets',()=>{
@@ -229,7 +245,7 @@ test('specialized setup respects a shared budget and scouting reveals counters w
  assert.equal(viewGame(g,0).players[1].nodes.database,null);
  g=applyAction(g,0,{type:'scan',side:'enemy',cell:20});
  assert.equal(viewGame(g,0).players[1].nodes.database.backup,true);assert.equal(viewGame(g,0).players[1].nodes.web,null);
- assert(g.logs.some(l=>l.audience===0&&l.text.includes('Копия: есть')));assert(!viewGame(g,1).logs.some(l=>l.text.includes('Копия: есть')));
+ assert(g.logs.some(l=>l.audience===0&&l.text.includes('Восстановление: готово')));assert(!viewGame(g,1).logs.some(l=>l.text.includes('Восстановление: готово')));
 });
 
 test('backup repairs and prepares a counter but cannot refund already lost income or cash',()=>{
@@ -240,7 +256,7 @@ test('backup repairs and prepares a counter but cannot refund already lost incom
 test('v2 migration preserves saved rooms and is idempotent without granting free counters',()=>{
  const old=ready();old.version=2;old.players[0].money=731;old.players[1].nodes.web.access=2;
  for(const p of old.players)for(const n of Object.values(p.nodes)){delete n.auth;delete n.backup;}
- const snapshot=JSON.stringify(old),up=upgradeGame(old);assert.equal(up.version,4);assert.equal(up.players[0].money,731);assert.equal(up.players[1].nodes.web.access,2);
+ const snapshot=JSON.stringify(old),up=upgradeGame(old);assert.equal(up.version,5);assert.equal(up.players[0].money,731);assert.equal(up.players[1].nodes.web.access,2);
  assert.deepEqual(up.players[0].layout,old.players[0].layout);assert.deepEqual(up.players[0].hand,old.players[0].hand);assert.equal(up.players[1].nodes.web.auth,0);assert.equal(up.players[1].nodes.web.backup,false);
  assert.equal(JSON.stringify(old),snapshot);assert.deepEqual(upgradeGame(up),up);
 });
@@ -250,17 +266,19 @@ test('secret reserve has the same visible projection for every chosen type and n
  assert.deepEqual(views[0],views[1]);assert.deepEqual(views[1],views[2]);
 });
 
-test('reserve protects one matching attack across all nodes, local guards first, then expires on the next own turn',()=>{
- for(const victim of [0,1])for(const attack of ['ddos','phishing','operation'])for(const counter of ['ddos','auth','backup']){
-  let g=ready();g.turn=victim;g=applyAction(g,victim,{type:'reserve',counter});g=end(g);const actor=1-victim;prepare(g,actor,[attack]);reveal(g,actor,'web');Object.assign(g.players[victim].nodes.web,{shield:0,auth:0,backup:false,access:attack==='operation'?1:0});
-  const before=g.players[victim].money;g=applyAction(g,actor,card(attack,'web'));const match=counter==={ddos:'ddos',phishing:'auth',operation:'backup'}[attack];
-  assert.equal(g.players[victim].reserve,match?null:counter);assert.equal(g.players[victim].nodes.web.offline,!match&&attack!=='phishing');assert.equal(g.stats[victim].blocked,match?1:0);if(match)assert.equal(g.players[victim].money,before);
+test('reserve protects one matching attack across the network, local guards first, and persists between turns',()=>{
+ for(const victim of [0,1])for(const attack of ['ddos','phishing','operation','fraud'])for(const counter of ['ddos','auth','backup']){
+  const node=attack==='phishing'||attack==='fraud'?'workstation':'web';
+  let g=ready();g.turn=victim;g=applyAction(g,victim,{type:'reserve',counter});g=end(g);const actor=1-victim;prepare(g,actor,[attack]);reveal(g,actor,node);Object.assign(g.players[victim].nodes[node],{shield:0,auth:0,backup:false,access:attack==='operation'||attack==='fraud'?1:0});
+  const before=g.players[victim].money;g=applyAction(g,actor,card(attack,node));const match=counter==={ddos:'ddos',phishing:'auth',operation:'backup',fraud:'auth'}[attack];
+  assert.equal(g.players[victim].reserve,match?null:counter);assert.equal(g.players[victim].nodes[node].offline,!match&&(attack==='operation'||attack==='ddos'));assert.equal(g.stats[victim].blocked,match?1:0);if(match){assert.equal(g.players[victim].money,before);assert.equal(g.players[victim].nodes[node].access,0);}
  }
- let g=ready();g=applyAction(g,0,{type:'reserve',counter:'ddos'});g=end(g);prepare(g,1,['ddos']);reveal(g,1,'web');g=applyAction(g,1,card('ddos','web'));assert.equal(g.players[0].nodes.web.shield,0);assert.equal(g.players[0].reserve,'ddos');g=end(g);assert.equal(g.players[0].reserve,null);assert.equal(actionStatus(viewGame(g,0),{type:'reserve',counter:'auth'}).ok,true);
+ let g=ready();g=applyAction(g,0,{type:'reserve',counter:'ddos'});g=end(g);prepare(g,1,['ddos']);reveal(g,1,'web');g=applyAction(g,1,card('ddos','web'));assert.equal(g.players[0].nodes.web.shield,0);assert.equal(g.players[0].reserve,'ddos');g=end(g);assert.equal(g.players[0].reserve,'ddos');assert.equal(actionStatus(viewGame(g,0),{type:'reserve',counter:'ddos'}).ok,false);
+ const money=g.players[0].money;g=applyAction(g,0,{type:'reserve',counter:'auth'});assert.equal(g.players[0].money,money-30);assert.equal(g.players[0].reserve,'auth');assert.equal(g.ap,2);assert.throws(()=>applyAction(g,0,{type:'reserve',counter:'backup'}),/уже выбрано/);
 });
 
-test('successful sabotage burns access and cannot be repeated after mere repair; phishing is visible to its victim',()=>{
- let g=ready();prepare(g,0,['phishing','operation']);reveal(g,0,'web');g=applyAction(g,0,card('phishing','web'));assert.equal(viewGame(g,1).players[1].nodes.web.access,1);assert.equal(g.players[1].money,240);g=applyAction(g,0,card('operation','web'));assert.equal(g.players[1].nodes.web.access,0);g=end(g);g=applyAction(g,1,{type:'restore',node:'web',side:'own'});g=end(g);g.players[0].hand=['operation'];assert.equal(actionStatus(viewGame(g,0),card('operation','web')).ok,false);
+test('successful sabotage burns access and cannot be repeated after mere repair',()=>{
+ let g=ready();prepare(g,0,['entry','operation']);reveal(g,0,'web');g=applyAction(g,0,card('entry','web'));g=applyAction(g,0,card('operation','web'));assert.equal(g.players[1].nodes.web.access,0);g=end(g);g=applyAction(g,1,{type:'restore',node:'web',side:'own'});g=end(g);g.players[0].hand=['operation'];assert.equal(actionStatus(viewGame(g,0),card('operation','web')).ok,false);
 });
 
 test('two consenting players start rematch with alternating initiative and income after both turns only',()=>{
@@ -268,5 +286,70 @@ test('two consenting players start rematch with alternating initiative and incom
 });
 
 test('v3 migration adds reserve and match metadata without revealing either hand or changing progress',()=>{
- const old=ready();old.version=3;delete old.stats;delete old.firstPlayer;delete old.matchNumber;delete old.rematchVotes;for(const p of old.players){delete p.reserve;delete p.reserveRound;}const g=upgradeGame(old);assert.equal(g.version,4);assert.equal(g.firstPlayer,0);assert.equal(g.players[0].reserve,null);assert.deepEqual(g.players[0].hand,old.players[0].hand);assert.equal(viewGame(g,1).stats,undefined);
+ const old=ready();old.version=3;delete old.stats;delete old.firstPlayer;delete old.matchNumber;delete old.rematchVotes;for(const p of old.players){delete p.reserve;delete p.reserveRound;}const g=upgradeGame(old);assert.equal(g.version,5);assert.equal(g.firstPlayer,0);assert.equal(g.players[0].reserve,null);assert.deepEqual(g.players[0].hand,old.players[0].hand);assert.equal(viewGame(g,1).stats,undefined);
+});
+
+test('discovering an internal server does not make it DDoS reachable; real access is required',()=>{
+ for(const actor of [0,1])for(const node of ['database','files']){
+  let g=ready();prepare(g,actor,['ddos']);const victim=1-actor;reveal(g,actor,node);
+  const snapshot=JSON.stringify(g);assert.throws(()=>applyAction(g,actor,card('ddos',node)),/внутренний узел/);assert.equal(JSON.stringify(g),snapshot);
+  g.players[victim].nodes[node].access=1;assert.equal(actionStatus(viewGame(g,actor),card('ddos',node)).ok,true);g=applyAction(g,actor,card('ddos',node));assert.equal(g.players[victim].nodes[node].offline,true);
+ }
+});
+
+test('v4 migration preserves the complete position and reserve, rejects unsupported future state',()=>{
+ const old=ready();old.version=4;old.players[0].money=731;old.players[0].reserve='backup';old.players[0].reserveRound=1;old.players[1].nodes.web.access=2;old.players[0].hand=['phishing','phishing'];old.round=5;
+ const before=structuredClone(old),up=upgradeGame(old);assert.equal(up.version,5);assert.deepEqual(up.players,before.players);assert.equal(up.round,5);assert.deepEqual(old,before);assert.deepEqual(upgradeGame(up),up);
+ for(const version of [0,6,99,NaN,undefined])assert.throws(()=>upgradeGame({...up,version}),/версия матча/);
+});
+
+test('fraud, phishing and sabotage previews cannot reveal the secret reserve type',()=>{
+ for(const attack of ['fraud','phishing','operation']){
+  const projections=[];
+  for(const counter of ['ddos','auth','backup']){
+   let g=ready();g=applyAction(g,0,{type:'reserve',counter});g=end(g);prepare(g,1,[attack]);const node=attack==='operation'?'web':'workstation';reveal(g,1,node);Object.assign(g.players[0].nodes[node],{shield:0,auth:0,backup:false,access:attack==='phishing'?0:1});
+   const v=viewGame(g,1);projections.push({v,status:actionStatus(v,card(attack,node)),ready:cardReadiness(v,attack)});
+  }
+  assert.deepEqual(projections[0],projections[1]);assert.deepEqual(projections[1],projections[2]);
+ }
+});
+
+
+test('phishing cannot consume stealth intended for a later technical entry, regardless of counter source',()=>{
+ for(const guard of ['none','local','reserve']){
+  let g=ready();prepare(g,0,['stealth','phishing','entry']);reveal(g,0,'workstation');reveal(g,0,'web');g.players[1].nodes.workstation.auth=guard==='local'?1:0;g.players[1].reserve=guard==='reserve'?'auth':null;
+  g=applyAction(g,0,{type:'card',card:'stealth'});g=applyAction(g,0,card('phishing','workstation'));assert.equal(g.players[0].quiet,true);
+  if(guard==='none')assert.equal(g.players[1].nodes.workstation.detected,true);
+  g=applyAction(g,0,card('entry','web'));assert.equal(g.players[0].quiet,false);assert.equal(g.players[1].nodes.web.detected,false);
+ }
+});
+
+
+test('bot clears detected payment access even when workstation has sabotage recovery',()=>{
+ const g=ready();g.players[0].hand=[];Object.assign(g.players[0].nodes.workstation,{access:1,detected:true,backup:true,auth:0});
+ assert.deepEqual(botAction(g),{type:'cleanse',node:'workstation',side:'own'});
+});
+
+
+test('attack planner builds reachable same-turn chains from visible state and never spends on an impossible route',()=>{
+ const g=ready();prepare(g,0,['entry','pivot','ddos']);for(const node of ['web','database'])reveal(g,0,node);
+ const plans=planAttacks(viewGame(g,0));assert(plans.some(p=>p.action.card==='entry'&&p.action.node==='web'&&p.steps===3&&p.swing>0));
+ g.ap=2;assert(!planAttacks(viewGame(g,0)).some(p=>p.action.card==='entry'&&p.action.node==='web'));
+ const a=viewGame(g,0),snapshot=JSON.stringify(a);planAttacks(a);assert.equal(JSON.stringify(a),snapshot);
+});
+
+test('access previews recommend follow-ups legal for the target role',()=>{
+ const g=ready();prepare(g,0,['entry','phishing']);reveal(g,0,'workstation');reveal(g,0,'control');g.players[1].nodes.workstation.auth=0;
+ assert.match(actionStatus(viewGame(g,0),card('entry','workstation')).preview,/подменить платёж/);
+ assert.doesNotMatch(actionStatus(viewGame(g,0),card('phishing','control')).preview,/саботаж/);
+});
+
+
+test('bot applies its finish-cash guard to planned attacks as well as single-card options',()=>{
+ const g=ready();prepare(g,0,['operation']);g.players[0].money=2960;g.players[1].money=2700;
+ for(const p of g.players)for(const n of Object.values(p.nodes))n.offline=true;
+ Object.assign(g.players[1].nodes.web,{offline:false,income:180,upgrades:2,access:2,shield:0,backup:false});
+ for(const node of ['web','workstation','database','files','control'])reveal(g,0,node);
+ assert.equal(incomeOf(g.players[0]),40);assert.equal(incomeOf(g.players[1]),220);
+ assert.deepEqual(botAction(g),{type:'end'});
 });

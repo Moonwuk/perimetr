@@ -47,6 +47,15 @@ test('presence polling keeps the revision and avoids repeated writes within 15 s
  assert.equal(stored.host_seen_at,first.presence[0]);
 });
 
+test('joining immediately reports both occupied seats as present',async()=>{
+ const host=(await post({intent:'create'})).data;
+ const joined=await post({intent:'join',code:host.code});assert.equal(joined.status,200);
+ assert(joined.data.presence.every(time=>time>0));
+ const stored=db.prepare('SELECT guest_seen_at FROM rooms WHERE code = ?').get(host.code);
+ assert.equal(joined.data.presence[1],stored.guest_seen_at);
+ assert.equal((await get(host.code,host.token)).data.presence[1],joined.data.presence[1]);
+});
+
 test('online lifecycle, deployment, hidden data, concurrent joins, CAS and financial finish',async()=>{
  const created=await post({intent:'create',name:'Host'});assert.equal(created.status,201);const h=created.data;assert.equal(h.game.status,'waiting');assert.match(h.code,/^[A-HJ-NP-Z2-9]{7}$/);assert(h.token);
  assert.equal((await get(h.code,'wrong')).status,403);
@@ -107,12 +116,13 @@ test('PvP server enforces typed counters, damage, hidden setup and a migrated ro
  assert.equal((await get(h.code,h.token)).data.game.players[1].nodes.web,null);
  let r=await move(h.code,3,{type:'card',card:'recon',cell:12,side:'enemy'},h.token);assert.equal(r.status,200);assert.equal(r.data.game.players[1].nodes.web.shield,1);
  r=await move(h.code,4,{type:'card',card:'ddos',node:'web',side:'enemy'},h.token);assert.equal(r.status,200);assert.equal(r.data.game.players[1].nodes.web.shield,0);assert.equal(r.data.game.players[1].money,300);assert.equal(r.data.game.players[1].nodes.web.offline,false);
- r=await move(h.code,5,{type:'card',card:'phishing',node:'web',side:'enemy'},h.token);assert.equal(r.status,200);assert.equal(r.data.game.players[1].money,240);assert.equal(r.data.game.players[1].nodes.web.access,1);assert.equal(r.data.game.players[0].money,265);assert.equal(r.data.game.ap,0);
- assert.equal((await move(h.code,6,{type:'card',card:'operation',node:'web',side:'enemy'},h.token)).status,400);
+ assert.equal((await move(h.code,5,{type:'card',card:'phishing',node:'web',side:'enemy'},h.token)).status,400,'Phishing needs an account target, not an arbitrary server');
+ r=await move(h.code,5,{type:'card',card:'phishing',node:'workstation',side:'enemy'},h.token);assert.equal(r.status,200);assert.equal(r.data.game.players[1].money,300);assert.equal(r.data.game.players[1].nodes.workstation.access,1);assert.equal(r.data.game.players[0].money,225);assert.equal(r.data.game.ap,0);
+ assert.equal((await move(h.code,6,{type:'card',card:'operation',node:'workstation',side:'enemy'},h.token)).status,400);
  state=JSON.parse(db.prepare('SELECT state FROM rooms WHERE code = ?').get(h.code).state);state.version=2;
  for(const p of state.players)for(const n of Object.values(p.nodes)){delete n.auth;delete n.backup;}
  db.prepare('UPDATE rooms SET state = ? WHERE code = ?').run(JSON.stringify(state),h.code);
- const migrated=await get(h.code,h.token);assert.equal(migrated.status,200);assert.equal(migrated.data.game.version,4);assert.equal(migrated.data.game.players[0].money,265);assert.equal(migrated.data.game.players[1].nodes.web.access,1);assert.equal(migrated.data.game.players[1].nodes.web.auth,0);
+ const migrated=await get(h.code,h.token);assert.equal(migrated.status,200);assert.equal(migrated.data.game.version,5);assert.equal(migrated.data.game.players[0].money,225);assert.equal(migrated.data.game.players[1].nodes.workstation.access,1);assert.equal(migrated.data.game.players[1].nodes.web.auth,0);
 });
 
 test('idempotent admission recovers lost create/join responses without extra rooms or seat theft',async()=>{
