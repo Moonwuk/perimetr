@@ -1,0 +1,9 @@
+:root{--font-mono:ui-monospace,SFMono-Regular,Consolas,monospace;--font-sans:Arial,Helvetica,sans-serif}
+html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+.mobile-recovery{min-height:100dvh;padding:32px 22px;display:flex;flex-direction:column;justify-content:center;gap:20px}
+.mobile-options{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:18px}
+.mobile-options button{min-height:44px;padding:8px 12px;border:1px solid #35424b;border-radius:6px;background:#141c22;color:#bccbd2;font-size:13px}
+.mode-card.mode-unavailable{opacity:.65;cursor:default}
+.mobile-privacy{line-height:1.6;color:#b8c6ce;font-size:14px;max-height:60dvh;overflow:auto}
+.mobile-privacy p{margin:0 0 14px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}

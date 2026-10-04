@@ -1,0 +1,58 @@
+plugins { id 'com.android.application' }
+
+def signingPath = System.getenv('PERIMETER_SIGNING_FILE')
+def signingProps = new Properties()
+if (signingPath) { file(signingPath).withInputStream { signingProps.load(it) } }
+
+android {
+    namespace 'ru.moongametechnology.perimeter'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        applicationId 'ru.moongametechnology.perimeter'
+        minSdk 26
+        targetSdk 36
+        versionCode 401
+        versionName '0.4.1'
+    }
+    signingConfigs {
+        if (signingPath) {
+            release {
+                storeFile new File(file(signingPath).parentFile, signingProps['storeFile'])
+                storePassword signingProps['storePassword']
+                keyAlias signingProps['keyAlias']
+                keyPassword signingProps['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        debug { applicationIdSuffix '.debug'; versionNameSuffix '-debug' }
+        release {
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (signingPath) signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures { buildConfig true }
+    lint { abortOnError true }
+}
+
+dependencies {
+    implementation 'androidx.activity:activity:1.10.1'
+    implementation 'androidx.webkit:webkit:1.14.0'
+    implementation 'ru.rustore.sdk:review:10.5.1'
+    implementation 'ru.rustore.sdk:appupdate:10.5.1'
+}
+
+tasks.register('verifyWebAssets') {
+    doLast {
+        if (!file('src/main/assets/web/index.html').isFile()) throw new GradleException('Run pnpm android:web before building Android.')
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'verifyWebAssets' }
