@@ -103,3 +103,19 @@
 /* Hand recovery: visible categories, card requirements, and one free exchange. */
 .hand-tabs{display:flex!important;width:100%;height:35px!important;background:#18282f!important;border:1px solid #344b56;padding:3px!important;margin-bottom:2px}.hand-tabs [data-slot=tabs-trigger]{flex:1;min-width:0;font-size:13px!important;gap:6px!important;color:#a7bdc5!important}.hand-tabs [data-slot=tabs-trigger][data-state=active]{background:#304a39!important;color:#daf2c6!important}.hand-tabs b{font-family:var(--font-mono);font-weight:400;color:#d4e4a3}.play-dock [data-slot=tabs]{gap:0}.play-dock [data-slot=tabs-content]{margin-top:0}.hand-card-condition{font-size:13px;line-height:1.25;color:#bfe3a5;margin-top:5px;min-height:17px}.hand-card.unavailable .hand-card-condition{color:#f1b69c}.hand-help{font-size:13px;line-height:1.4;color:#e5c39c;padding:6px 0 9px}.hand-empty{font-size:14px;line-height:1.5;color:#9db5c1;padding:10px 4px;min-height:110px}.command-title{display:flex;align-items:center;justify-content:space-between;gap:10px}.command-title>strong{flex:1}.replace-card{flex-shrink:0;color:#d9ecb5;border:1px solid #57755d;background:#253a2d;border-radius:5px;min-height:36px;padding:6px 11px;font-size:13px}.replace-card:disabled{color:#91a197;background:#1c2925;border-color:#394a42}.base-scan-button{display:flex;align-items:center;gap:8px;flex-wrap:wrap;align-self:flex-start;margin-top:7px;border:1px solid #426370;border-radius:6px;background:#20333e;color:#c7dde3;font-size:14px;padding:10px 12px;min-height:42px}.base-scan-button small{font-size:12px;color:#a6c292}.exchange-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.exchange-choices button{display:flex;flex-direction:column;gap:8px;text-align:left;padding:18px 14px;border:1px solid #49616b;border-radius:7px;background:#223640;color:#dce9e5;min-height:100px}.exchange-choices strong{font-size:17px;font-weight:500}.exchange-choices span{font-size:14px;line-height:1.4;color:#b3c5cb}.exchange-choices .attack strong{color:#f4ab91}.exchange-choices .defense strong{color:#b4e6bc}.exchange-choices .economy strong{color:#e5cf8c}.exchange-choices button:disabled{opacity:.5}
 @media(max-width:750px){.hand-tabs{height:32px!important}.hand-tabs [data-slot=tabs-trigger]{font-size:12px!important;padding:3px!important;gap:4px!important}.hand-card{flex-basis:138px;min-height:113px}.hand-card-condition{font-size:12px;min-height:15px}.command-title{gap:7px;margin-bottom:2px}.command-title>strong{font-size:13px;line-height:1.25;margin:0}.replace-card{min-height:36px;padding:7px 9px;font-size:12px;max-width:120px;line-height:1.2}.hand-help{font-size:12px;padding:4px 0 7px}.base-scan-button{font-size:13px;padding:9px 10px;gap:6px}.exchange-choices{grid-template-columns:1fr;gap:9px}.exchange-choices button{min-height:68px;padding:13px 15px}.exchange-choices strong{font-size:16px}.exchange-choices span{font-size:13px}}
+
+/* Keep all lobby choices aligned regardless of copy length and icon count. */
+.mode-card {
+ display:grid;
+ grid-template-columns:32px minmax(0,1fr) 22px;
+ min-height:132px;
+}
+.mode-card>div { min-width:0; }
+.mode-card>svg:first-child { margin:0; width:32px; height:32px; }
+.mode-card>svg:last-child { margin:0; justify-self:end; }
+.mode-card small { display:block; overflow-wrap:anywhere; }
+@media(max-width:750px) {
+ .mode-card { grid-template-columns:28px minmax(0,1fr) 20px; gap:12px; min-height:112px; }
+ .mode-card>svg:first-child { width:28px; height:28px; }
+ .mode-card>svg:last-child { width:20px; height:20px; }
+}
