@@ -6,7 +6,7 @@ const apiJson=(body:unknown,status=200,extra:Record<string,string>={})=>Response
   'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',...extra,
 }});
 
-export default {
+const worker = {
  async fetch(request:Request,env:Env):Promise<Response>{
   const url=new URL(request.url);
   if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
@@ -17,7 +17,7 @@ export default {
    if(url.pathname==='/api/health'){
     if(request.method!=='GET')return apiJson({error:'Метод не поддерживается.'},405,{Allow:'GET'});
     await env.DB.prepare('SELECT code FROM rooms LIMIT 1').first();
-    return apiJson({ok:true,game:'perimeter',version:'0.4.2',storage:'ready'});
+    return apiJson({ok:true,game:'perimeter',version:'0.5.0',storage:'ready'});
    }
    if(url.pathname!=='/api/rooms')return apiJson({error:'Маршрут не найден.'},404);
    if(request.method==='GET')return GET(request);
@@ -34,3 +34,5 @@ export default {
   await env.DB.prepare('DELETE FROM rooms WHERE expires_at <= ?').bind(Date.now()).run();
  },
 };
+
+export default worker;

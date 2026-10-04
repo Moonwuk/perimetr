@@ -1,6 +1,6 @@
 # Android / RuStore
 
-Нативная Java-оболочка содержит автономную сборку React-игры. Код движка общий с веб-версией; игровые файлы включены в APK и не загружаются с закрытого сайта. Package ID: `ru.moongametechnology.perimeter`, версия `0.4.1`, `versionCode=401`, Android 8.0+ (API 26), target/compile API 36. Нужен актуальный Android System WebView с Chromium 111+.
+Нативная Java-оболочка содержит автономную сборку React-игры. Код движка общий с веб-версией; игровые файлы включены в APK. Исходники следующей сборки: `0.5.0`, `versionCode=500`; готовые подписанные APK/AAB в репозитории пока относятся к `0.4.1` и не содержат новых правил. Package ID: `ru.moongametechnology.perimeter`, Android 8.0+ (API 26), target/compile API 36. Нужен актуальный Android System WebView с Chromium 111+.
 
 ## Локальная сборка
 

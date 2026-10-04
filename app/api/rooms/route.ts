@@ -46,9 +46,10 @@ export async function handleRoomPost(request:Request,admissionLimit?:()=>Promise
    if(row.host_hash===guestHash)return json({error:'Это ключ первого игрока. Вернитесь в своё место.'},409);
    if(row.guest_hash||g.status!=='waiting')return json({error:'В комнате уже есть два игрока.'},409);
    g.players[1].name=playerName(b.name,'Оператор 02');g.status=g.players.every(p=>p.ready)?'playing':'setup';if(g.status==='playing')g.turn=g.firstPlayer;
-   const joined=await db.prepare('UPDATE rooms SET guest_hash = ?, state = ?, guest_seen_at = ?, revision = revision + 1 WHERE code = ? AND guest_hash IS NULL AND revision = ?').bind(guestHash,JSON.stringify(g),Date.now(),row.code,row.revision).run();
+   const joinedAt=Date.now();
+   const joined=await db.prepare('UPDATE rooms SET guest_hash = ?, state = ?, guest_seen_at = ?, revision = revision + 1 WHERE code = ? AND guest_hash IS NULL AND revision = ?').bind(guestHash,JSON.stringify(g),joinedAt,row.code,row.revision).run();
    if(joined.meta.changes!==1){const latest=await readRoom(row.code);if(latest?.guest_hash===guestHash)return json({...payload(latest,upgradeGame(JSON.parse(latest.state)),1),token:secret});return json({error:'Это место уже занято. Повторите вход после обновления.'},409);}
-   row.revision++;return json({...payload(row,g,1),token:secret});
+   row.guest_seen_at=joinedAt;row.revision++;return json({...payload(row,g,1),token:secret});
   }
   if(b.intent!=='action')return json({error:'Неизвестное действие.'},400);
   const actor=await actorFor(request,row);if(actor<0)return json({error:'Нет доступа к этому месту игрока.'},403);

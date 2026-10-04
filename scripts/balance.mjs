@@ -1,6 +1,6 @@
 // Exploratory comparisons of simple policies, not proof of human balance.
 const engine=await import(process.env.BALANCE_ENGINE||'../lib/game/engine.ts');
-const {newGame,applyAction,viewGame,botAction,deploymentOf,actionStatus,incomeOf,CARDS,NODES,MONEY_GOAL,MAX_ROUNDS,attackSwing,scanArea}=engine;
+const {newGame,applyAction,viewGame,botAction,deploymentOf,actionStatus,incomeOf,CARDS,NODES,MONEY_GOAL,MAX_ROUNDS,attackSwing,scanArea,cardReadiness}=engine;
 const end={type:'end'},seeds=Number(process.argv[2]??40),offset=Number(process.argv[3]??0);
 if(!Number.isInteger(seeds)||seeds<1||seeds>200||!Number.isInteger(offset)||offset<0||offset+seeds>0xffffffff)throw new Error('Use 1–200 seeds.');
 function policy(v,style){
@@ -8,17 +8,24 @@ function policy(v,style){
  const action=(card,node,side='own')=>({type:'card',card,node,side});
  // All policies can react, repair, exchange useless cards and develop.
  for(const n of NODES){const own=p.nodes[n.id];if(!own)continue;
-  if(own.detected&&!own.backup){for(const a of [action('backup',n.id),action('purge',n.id),{type:'cleanse',node:n.id,side:'own'}])if(valid(a))return a;}
+  if(own.detected&&(!own.backup||CARDS.fraud&&n.id==='workstation')){for(const a of [action('backup',n.id),action('purge',n.id),{type:'cleanse',node:n.id,side:'own'}])if(valid(a))return a;}
   if(own.offline&&style==='defender'&&valid(action('patch',n.id)))return action('patch',n.id);
   const repair={type:'restore',node:n.id,side:'own'};if((own.offline||own.isolated)&&valid(repair))return repair;
  }
  // Estimate unrevealed core income; a hidden server is not a zero-income server.
  const enemyIncome=40+NODES.reduce((s,n)=>s+(enemy.nodes[n.id]?incomeOf({nodes:{[n.id]:enemy.nodes[n.id]}})-40:({web:100,database:80,files:60}[n.id]??0)),0);
  if(p.money+incomeOf(p)>=MONEY_GOAL&&p.money+incomeOf(p)>enemy.money+enemyIncome)return end;
- const attacks=[];
+ const attacks=engine.planAttacks?engine.planAttacks(v).map(plan=>({a:plan.action,value:plan.swing/plan.steps})):[];
  for(const n of NODES){const target=enemy.nodes[n.id];if(!target)continue;
-  for(const c of ['ddos','phishing','operation']){const a=action(c,n.id,'enemy'),value=attackSwing(c,n.id,target,enemy.money,enemy.reserve);if(value>0&&valid(a))attacks.push({a,value});}
-  if(p.hand.includes('operation')&&!target.backup&&(target.income>0||n.id==='control'))for(const c of ['entry','pivot']){const a=action(c,n.id,'enemy'),value=attackSwing('operation',n.id,{...target,access:1},enemy.money)-CARDS[c].money;if(value>0&&valid(a))attacks.push({a,value:value/2});}
+  for(const c of ['ddos','phishing','operation',...(CARDS.fraud?['fraud']:[])]){const a=action(c,n.id,'enemy'),value=attackSwing(c,n.id,target,enemy.money,enemy.reserve);if(value>0&&valid(a))attacks.push({a,value});}
+  if(p.hand.includes('operation')&&!target.backup&&(target.income>0||n.id==='control'))for(const c of ['entry','pivot',...(engine.FRAUD_AMOUNT?['phishing']:[])]){const a=action(c,n.id,'enemy'),value=attackSwing('operation',n.id,{...target,access:1},enemy.money)-CARDS[c].money;if(value>0&&valid(a))attacks.push({a,value:value/2});}
+ }
+ if(CARDS.fraud&&p.hand.includes('fraud')){
+  const target=enemy.nodes.workstation;
+  if(target&&!target.auth)for(const c of ['phishing','entry','pivot']){
+   const a=action(c,'workstation','enemy'),value=attackSwing('fraud','workstation',{...target,access:1},enemy.money)-CARDS[c].money;
+   if(value>0&&valid(a))attacks.push({a,value:value/2});
+  }
  }
  attacks.sort((a,b)=>b.value-a.value);
  const scout=()=>{
@@ -29,13 +36,15 @@ function policy(v,style){
  };
  if(style==='raider'){
   if(attacks.length)return attacks[0].a;
-  if(p.hand.some(c=>['ddos','phishing','entry'].includes(c))){const a=scout();if(a)return a;}
+  // Scout with a usable follow-up. A card that needs an absent companion is not a reason to spend every action scouting.
+  const seeking=p.hand.includes('ddos')||p.hand.includes('operation')&&p.hand.some(c=>['entry','pivot','phishing'].includes(c))||p.hand.includes('fraud')&&p.hand.some(c=>['entry','pivot','phishing'].includes(c));
+  if(v.round>1&&seeking){const a=scout();if(a)return a;}
  }
- if(style==='defender'&&v.round>1&&v.ap===3&&p.money>=205){
+ if(style==='defender'&&v.round>1&&v.ap===3&&p.money>=CARDS.expand.money+25){
   const recent=v.logs.filter(l=>l.round>=v.round-2&&l.tone==='attack'&&!l.text.startsWith(p.name+':')),ddos=recent.some(l=>l.text.includes('DDoS:')),phishing=recent.some(l=>l.text.includes('фишинг'));
   if(engine.RESERVE_COST!==undefined&&!p.reserve){const counter=phishing?'auth':ddos?'ddos':null,a={type:'reserve',counter};if(counter&&valid(a))return a;}
   for(const n of [...NODES].sort((a,b)=>(p.nodes[b.id]?.income??0)-(p.nodes[a.id]?.income??0))){const own=p.nodes[n.id];if(!own)continue;
-   for(const [card,needed] of [['shield',!own.shield&&(ddos||own.income>=100)],['patch',!own.auth&&phishing],['backup',!own.backup&&own.income>=100&&recent.some(l=>l.text.includes('саботаж'))]]){const a=action(card,n.id);if(needed&&valid(a))return a;}
+   for(const [card,needed] of [['shield',!own.shield&&(ddos||own.income>=100)],['patch',!own.auth&&phishing&&(!engine.hasAccountSurface||engine.hasAccountSurface(n.id))],['backup',!own.backup&&own.income>=100&&recent.some(l=>l.text.includes('саботаж'))]]){const a=action(card,n.id);if(needed&&valid(a))return a;}
   }
  }
  const turns=Math.max(1,Math.min(MAX_ROUNDS-v.round+1,Math.ceil((MONEY_GOAL-p.money)/incomeOf(p)),Math.ceil((MONEY_GOAL-enemy.money)/Math.max(1,enemyIncome))));
@@ -44,7 +53,7 @@ function policy(v,style){
  for(const n of NODES){const a=action('optimize',n.id);if(valid(a)&&turns*40>CARDS.optimize.money)return a;}
  if(style!=='economy'&&attacks.length)return attacks[0].a;
  const wanted=style==='raider'?'attack':'economy';
- for(const c of p.hand)if(CARDS[c].kind!==wanted){const a={type:'exchange',card:c,kind:wanted};if(valid(a))return a;}
+ for(const c of p.hand)if(CARDS[c].kind!==wanted||!cardReadiness(v,c).ok){const a={type:'exchange',card:c,kind:wanted};if(valid(a))return a;}
  const draw={type:'draw'};return valid(draw)?draw:end;
 }
 const policies={economy:v=>policy(v,'economy'),raider:v=>policy(v,'raider'),defender:v=>policy(v,'defender'),bot:botAction};
