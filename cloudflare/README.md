@@ -38,17 +38,19 @@ pnpm cf:deploy
 
 ## Если удобнее через GitHub
 
-После загрузки этого проекта в `Moonwuk/perimeter` можно связать репозиторий с Cloudflare Workers & Pages → Create → Import a repository. Выбирать развёртывание **Worker**.
+В Cloudflare Workers & Pages → Create → Import a repository выбрать `Moonwuk/perimetr`. Выбирать развёртывание **Worker**.
 
 - Корневая папка: корень репозитория.
 - Версия Node: 24 (`NODE_VERSION=24`, если интерфейс запрашивает переменную).
-- Команда сборки: `pnpm test`.
+- Команда сборки: `pnpm build`.
 - Команда развёртывания: `pnpm cf:deploy`.
-- До первого deploy создать D1 и сохранить настоящий database_id через `cf:configure` в репозитории.
+- До первого deploy создать D1. Добавить `PERIMETER_D1_DATABASE_ID` с настоящим database_id в переменные сборки Cloudflare либо сохранить ID через `cf:configure` в репозитории. `cf:deploy` автоматически применит переменную перед проверкой конфигурации.
+- Имя Worker в панели должно совпадать с `name` в `cloudflare/wrangler.json` (по умолчанию `perimeter`).
+- Команду развёртывания задать явно: стандартный `npx wrangler deploy` из корня не выбирает вложенный `cloudflare/wrangler.json`.
 
 Также подготовлен ручной workflow `.github/workflows/cloudflare.yml`. Для него добавить Secret `CLOUDFLARE_API_TOKEN` и Variables `CLOUDFLARE_ACCOUNT_ID`, `PERIMETER_D1_DATABASE_ID`. Токен ограничить нужным аккаунтом и разрешениями для развёртывания Workers и изменений D1; дополнительные зоны/DNS для стандартного workers.dev не нужны. Workflow не стартует автоматически от pull request.
 
-Доступ ChatGPT к Moonwuk/perimeter ранее возвращал 404. Этот архив ещё не загружен в репозиторий.
+Исходники загружены в `Moonwuk/perimetr`. Для сборки и развёртывания не нужны приватные файлы прежнего Sites-проекта.
 
 ## Что работает
 
@@ -96,3 +98,9 @@ pnpm cf:dev
 - D1 и миграции: https://developers.cloudflare.com/d1/reference/migrations/
 - Rate Limiting: https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
 - Конфигурация Wrangler: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+## Если сборка падает
+
+Ошибка `Could not resolve ./.openai/hosting.json` означала запуск старой сборки Sites. Теперь обычный `pnpm build` собирает самостоятельный интерфейс Cloudflare. Корневая конфигурация Vite также использует этот путь.
+
+Если ошибка возникает до команды сборки, проверить Node 24 и установку зависимостей. Если после неё — проверить команду `pnpm cf:deploy`, настоящий D1 ID, права токена на Workers/D1 и совпадение имени Worker. Лог Cloudflare показывает, на каком этапе остановилось развёртывание.
