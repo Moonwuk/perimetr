@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=MoonGameTechnology, OU=Perimeter, O=MoonGameTechnology
+Signer #1 certificate SHA-256 digest: c09aa4339854470cd549b3169e995b8e293b673ba9cdd84f8ad49414b3a6d905
+Signer #1 certificate SHA-1 digest: bcf96c0a454f80ff9d4b8ff7af9240bd69d0868a
+Signer #1 certificate MD5 digest: 6ec8dbca6b13b75a7802e33d0caadbeb
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 4096
+Signer #1 public key SHA-256 digest: 2a34b8834209ccb6aca7afa3a6c1b93a9251bef726bb6d6db05b0c74efcab333
+Signer #1 public key SHA-1 digest: 41973054a3e8d1c4b69689e06bda311fe278654c
+Signer #1 public key MD5 digest: 43532ae7af3e66265e5673bf713b32d1

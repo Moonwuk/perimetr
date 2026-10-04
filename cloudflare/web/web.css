@@ -1,0 +1,2 @@
+:root{--font-mono:ui-monospace,SFMono-Regular,Consolas,monospace;--font-sans:Arial,Helvetica,sans-serif}
+.web-recovery{max-width:600px;min-height:100dvh;padding:30px;margin:auto;display:flex;flex-direction:column;justify-content:center;gap:20px}

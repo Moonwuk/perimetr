@@ -1,0 +1,70 @@
+name: Android RuStore release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.25.0'
+      - uses: android-actions/setup-android@v3
+      - name: Android packages
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Dependencies and checks
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+          pnpm exec tsc --noEmit --incremental false
+          pnpm android:web
+      - name: Prepare private signing material
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PERIMETER_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.PERIMETER_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.PERIMETER_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PERIMETER_KEY_ALIAS }}
+        run: |
+          python3 - <<'PY'
+          import os,base64,pathlib
+          required=['KEYSTORE_BASE64','STORE_PASSWORD','KEY_PASSWORD','KEY_ALIAS']
+          if any(not os.environ.get(k) for k in required):
+              raise SystemExit('Configure all PERIMETER signing secrets before running a release.')
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'perimeter-private'
+          p.mkdir(mode=0o700)
+          (p/'perimeter-release.jks').write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'],validate=True))
+          def escape(v):
+              return ''.join('\\u%04x'%ord(c) if ord(c)>126 else '\\'+c if c in '\\:=#! ' else '\\n' if c=='\n' else '\\r' if c=='\r' else c for c in v)
+          data={'storeFile':'perimeter-release.jks','storePassword':os.environ['STORE_PASSWORD'],'keyAlias':os.environ['KEY_ALIAS'],'keyPassword':os.environ['KEY_PASSWORD']}
+          (p/'signing.properties').write_text(''.join(k+'='+escape(v)+'\n' for k,v in data.items()))
+          for f in p.iterdir():f.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('PERIMETER_SIGNING_FILE='+str(p/'signing.properties')+'\n')
+          PY
+      - name: Build signed release
+        working-directory: android
+        run: ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease :app:lintRelease
+      - name: Verify APK signature
+        run: '"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/release/app-release.apk'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perimeter-rustore-release
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/mapping/release/mapping.txt
+            android/app/build/reports/lint-results-release.html
+            release/rustore/
+          if-no-files-found: error
+      - name: Remove signing material
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/perimeter-private"
