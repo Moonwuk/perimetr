@@ -19,9 +19,9 @@ pnpm cf:configure <DATABASE_ID>
 pnpm cf:deploy
 ```
 
-`cf:deploy` собирает интерфейс, применяет миграции к вашей D1 и публикует Worker. С пустым идентификатором базы команда останавливается до публикации. Cloudflare выдаст HTTPS-адрес вида `perimeter.<ваш-поддомен>.workers.dev` — точный адрес появится в выводе успешного deploy.
+`cf:deploy` собирает интерфейс, применяет миграции к вашей D1 и публикует Worker. С пустым идентификатором базы команда останавливается до публикации. Cloudflare выдаст HTTPS-адрес вида `perimetr.<ваш-поддомен>.workers.dev` — точный адрес появится в выводе успешного deploy.
 
-Если база `perimeter-rooms` уже существует, не создавать её повторно: найти её database_id в D1 и выполнить `cf:configure`. Если аккаунтов несколько, указать нужный `CLOUDFLARE_ACCOUNT_ID` в окружении перед развёртыванием. Имя Worker `perimeter` можно изменить в `cloudflare/wrangler.json`; для базы сохранить имя `perimeter-rooms`, поскольку оно используется скриптами.
+Если база `perimeter-rooms` уже существует, не создавать её повторно: найти её database_id в D1 и выполнить `cf:configure`. Если аккаунтов несколько, указать нужный `CLOUDFLARE_ACCOUNT_ID` в окружении перед развёртыванием. Имя Worker `perimetr` можно изменить в `cloudflare/wrangler.json`; для базы сохранить имя `perimeter-rooms`, поскольку оно используется скриптами.
 
 Не отправлять API-токен в чат и не добавлять его в исходники. `wrangler login` открывает обычную авторизацию Cloudflare в браузере на вашем компьютере.
 
@@ -45,7 +45,7 @@ pnpm cf:deploy
 - Команда сборки: `pnpm build`.
 - Команда развёртывания: `pnpm cf:deploy`.
 - До первого deploy создать D1. Добавить `PERIMETER_D1_DATABASE_ID` с настоящим database_id в переменные сборки Cloudflare либо сохранить ID через `cf:configure` в репозитории. `cf:deploy` автоматически применит переменную перед проверкой конфигурации.
-- Имя Worker в панели должно совпадать с `name` в `cloudflare/wrangler.json` (по умолчанию `perimeter`).
+- Имя Worker в панели должно совпадать с `name` в `cloudflare/wrangler.json` (по умолчанию `perimetr`).
 - Команду развёртывания задать явно: стандартный `npx wrangler deploy` из корня не выбирает вложенный `cloudflare/wrangler.json`.
 
 Также подготовлен ручной workflow `.github/workflows/cloudflare.yml`. Для него добавить Secret `CLOUDFLARE_API_TOKEN` и Variables `CLOUDFLARE_ACCOUNT_ID`, `PERIMETER_D1_DATABASE_ID`. Токен ограничить нужным аккаунтом и разрешениями для развёртывания Workers и изменений D1; дополнительные зоны/DNS для стандартного workers.dev не нужны. Workflow не стартует автоматически от pull request.
