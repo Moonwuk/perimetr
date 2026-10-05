@@ -1,5 +1,5 @@
 import { roomDb } from '@/db/rooms';
-import { CARDS, RESERVE_COST, incomeOf, type Action, type CardId, type Game } from '@/lib/game/engine';
+import { CARDS, RESERVE_COST, incomeOf, type Action, type CardId, type Game, type PauseDecision } from '@/lib/game/engine';
 export const METRICS_RETENTION_DAYS=30;
 export const metricsCutoff=()=>Date.now()-METRICS_RETENTION_DAYS*86_400_000;
 export type MetricRoom={code:string;host_hash:string;visibility:'public'|'private';revision:number};
@@ -13,7 +13,7 @@ function snapshot(db:D1Database,id:string,room:MetricRoom,g:Game,now:number,clos
  const ended=status==='finished'||status==='abandoned';
  return db.prepare(`INSERT INTO metrics_matches (id,match_number,visibility,revision,status,round,first_player,winner,money0,money1,income0,income1,created_at,updated_at,started_at,ended_at,finish_reason)
  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,status=excluded.status,round=excluded.round,winner=excluded.winner,money0=excluded.money0,money1=excluded.money1,income0=excluded.income0,income1=excluded.income1,updated_at=excluded.updated_at,started_at=COALESCE(metrics_matches.started_at,excluded.started_at),ended_at=COALESCE(metrics_matches.ended_at,excluded.ended_at),finish_reason=COALESCE(metrics_matches.finish_reason,excluded.finish_reason)
- WHERE excluded.revision >= metrics_matches.revision AND metrics_matches.status != 'abandoned'`).bind(id,g.matchNumber,room.visibility,room.revision,status,g.round,g.firstPlayer,g.winner,g.players[0].money,g.players[1].money,incomeOf(g.players[0]),incomeOf(g.players[1]),now,now,g.status==='playing'?now:null,ended?now:null,ended?(reason??'finished'):null);
+ WHERE excluded.revision >= metrics_matches.revision AND metrics_matches.status != 'abandoned' AND (metrics_matches.status != 'finished' OR excluded.status = 'finished')`).bind(id,g.matchNumber,room.visibility,room.revision,status,g.round,g.firstPlayer,g.winner,g.players[0].money,g.players[1].money,incomeOf(g.players[0]),incomeOf(g.players[1]),now,now,g.startedAt??(g.status==='playing'?now:null),ended?now:null,ended?(g.finishReason??reason??'finished'):null);
 }
 function event(db:D1Database,id:string,matchId:string,room:MetricRoom,g:Game,actor:number|null,type:string,data:Record<string,unknown>,now:number,source='server'){
  return db.prepare('INSERT OR IGNORE INTO metrics_events (id,match_id,at,source,type,actor,revision,round,data) VALUES (?,?,?,?,?,?,?,?,?)').bind(id,matchId,now,source,type,actor,room.revision,g.round,JSON.stringify(data));
@@ -30,6 +30,18 @@ export async function recordActionMetric(room:MetricRoom,before:Game,next:Game,a
   if(oldId!==newId)writes.push(snapshot(db,oldId,room,before,now));
   await db.batch(writes);
  });
+}
+// This outcome is decided by the server's presence CAS, never a client game action.
+export async function recordDisconnectMetric(room:MetricRoom,before:Game,next:Game,actor:number){
+ await bestEffort(async()=>{const db=roomDb(),id=await metricMatchId(room,next),now=Date.now();await db.batch([
+  snapshot(db,id,room,next,now,false,'disconnect'),
+  event(db,`${id}:${room.revision}:disconnect`,id,room,before,actor,'disconnect',{winner:actor},now),
+ ]);});
+}
+export async function recordPauseMetric(room:MetricRoom,g:Game,actor:number,decision:PauseDecision){
+ await bestEffort(async()=>{const db=roomDb(),id=await metricMatchId(room,g),now=Date.now();await db.batch([
+  snapshot(db,id,room,g,now),event(db,`${id}:${room.revision}:pause`,id,room,g,actor,'pause',{decision},now),
+ ]);});
 }
 export async function recordErrorMetric(room:MetricRoom,g:Game,actor:number,error:ErrorKind){
  await bestEffort(async()=>{const db=roomDb(),id=await metricMatchId(room,g),now=Date.now();await db.batch([snapshot(db,id,room,g,now),event(db,crypto.randomUUID(),id,room,g,actor,'request_error',{error},now)]);});

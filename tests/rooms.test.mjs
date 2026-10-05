@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFile,readdir} from 'node:fs/promises';
 import ts from 'typescript';
+import {applyAction,actionStatus,viewGame} from '../lib/game/engine.ts';
 const db=new DatabaseSync(':memory:');
 for(const file of (await readdir(new URL('../drizzle/',import.meta.url))).filter(f=>f.endsWith('.sql')).sort())db.exec(await readFile(new URL('../drizzle/'+file,import.meta.url),'utf8'));
 // Exercise the production route and SQL against a transactional SQLite-backed D1 adapter.
-const adapter={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){return db.prepare(sql).get(...args)??null;},run(){const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};},async batch(statements){db.exec('BEGIN');try{const out=[];for(const s of statements)out.push(s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
+let beforeRun;
+let beforeFirst;
+const adapter={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){if(beforeFirst)beforeFirst(sql,args);return db.prepare(sql).get(...args)??null;},run(){if(beforeRun)beforeRun(sql,args);const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};},async batch(statements){db.exec('BEGIN');try{const out=[];for(const s of statements)out.push(s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
 globalThis.__contourRoomTestDb=adapter;
 const metricsSource=(await readFile(new URL('../lib/server/metrics.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href)).replace("'@/lib/server/api-origin'",JSON.stringify(new URL('../lib/server/api-origin.ts',import.meta.url).href));
 const metricsUrl='data:text/javascript;base64,'+Buffer.from(ts.transpileModule(metricsSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
@@ -249,7 +252,8 @@ test('a concurrent close and match cannot resurrect a deleted room',async()=>{
  hidePublicRooms();
  const host=(await post({intent:'create',visibility:'public'})).data;
  const [closed,matched]=await Promise.all([post({intent:'close',code:host.code},host.token),post({intent:'find',seatToken:secret()})]);
- assert.equal(closed.status,200);assert([200,404].includes(matched.status));
+ assert([200,409].includes(closed.status));assert([200,404].includes(matched.status));
+ if(closed.status===409){assert.equal(matched.status,200);assert.equal(closed.data.game.status,'setup');assert.equal((await post({intent:'close',code:host.code,revision:closed.data.revision},host.token)).status,200);}
  assert.equal((await get(host.code,host.token)).status,404);
  if(matched.status===200)assert.equal((await get(host.code,matched.data.token)).status,404);
 });
@@ -274,4 +278,159 @@ test('Android app origin can use the same room seats but foreign origins and mis
  const confirmed=await post({intent:'action',code:host.data.code,revision:0,action:hostSetup},host.data.token,origin);assert.equal(confirmed.status,200);
  assert.equal((await post({intent:'close',code:host.data.code},'wrong',origin)).status,403);
  assert.equal((await post({intent:'close',code:host.data.code},host.data.token,origin)).status,200);
+});
+
+async function playingRoom(){
+ const host=(await post({intent:'create'})).data,guest=(await post({intent:'join',code:host.code})).data;
+ await move(host.code,1,hostSetup,host.token);
+ const started=await move(host.code,2,guestSetup,guest.token);assert.equal(started.status,200);
+ return {host,guest,room:started.data};
+}
+function absentFor(code,actor,milliseconds=121_000){
+ const row=db.prepare('SELECT state FROM rooms WHERE code = ?').get(code),game=JSON.parse(row.state),at=Date.now()-milliseconds;
+ game.startedAt=at;
+ db.prepare(`UPDATE rooms SET state = ?, ${actor===0?'host_seen_at':'guest_seen_at'} = ? WHERE code = ?`).run(JSON.stringify(game),at,code);
+}
+const claim=(code,revision,token)=>post({intent:'claimDisconnect',code,revision},token);
+
+test('reconnect window uses server time, is unavailable before the match, and starts no earlier than play',async()=>{
+ const host=(await post({intent:'create'})).data,guest=(await post({intent:'join',code:host.code})).data;
+ assert.equal(guest.reconnectGraceMs,120_000);
+ absentFor(host.code,0);
+ assert.equal((await claim(host.code,1,guest.token)).status,409,'Setup absence cannot award a win');
+ await move(host.code,1,hostSetup,host.token);
+ db.prepare('UPDATE rooms SET host_seen_at = ? WHERE code = ?').run(Date.now()-600_000,host.code);
+ const started=await move(host.code,2,guestSetup,guest.token);
+ assert.equal(started.status,200);assert(started.data.game.startedAt>0);
+ assert.equal((await claim(host.code,3,guest.token)).status,409,'A player ready before a long lobby wait still gets the reconnect window');
+ assert.equal((await claim(host.code,3,'wrong')).status,403);
+ assert.equal((await post({intent:'claimDisconnect',code:host.code,revision:3,serverTime:Date.now()+9999999},guest.token)).status,409,'Client clocks cannot shorten the grace period');
+ assert.equal((await move(host.code,3,{type:'claimDisconnect'},guest.token)).status,400,'The claim is server-only, not an engine action');
+ const state=(await get(host.code,guest.token)).data;
+ assert.equal(state.game.status,'playing');assert.equal(state.game.winner,null);
+});
+
+test('only an authenticated claimant ends a stale playing match, and the result cannot be rewritten',async()=>{
+ const {host,guest}=await playingRoom();absentFor(host.code,0);
+ const result=await claim(host.code,3,guest.token);assert.equal(result.status,200);
+ assert.equal(result.data.game.status,'finished');assert.equal(result.data.game.winner,1);assert.equal(result.data.game.finishReason,'disconnect');assert.equal(result.data.revision,4);
+ assert.equal(result.data.game.turn,0,'The guest can claim outside their own turn');
+ assert.deepEqual(result.data.game.players[0].hand,[]);assert.deepEqual(result.data.game.players[0].layout,{});
+ assert(!JSON.stringify(result.data).includes(host.token));
+ assert.equal((await claim(host.code,3,guest.token)).status,409);
+ assert.equal((await claim(host.code,4,host.token)).status,409);
+ assert.equal((await move(host.code,4,{type:'surrender'},guest.token)).status,400);
+ const restored=(await get(host.code,host.token)).data;
+ assert.equal(restored.game.winner,1);assert.equal(restored.game.finishReason,'disconnect');assert.equal(restored.revision,4);
+ assert.equal((await post({intent:'close',code:host.code,revision:4},host.token)).status,200);
+});
+
+test('no automatic loss is assigned when both players disappear',async()=>{
+ const {host,guest}=await playingRoom();absentFor(host.code,0);absentFor(host.code,1);
+ const returned=(await get(host.code,guest.token)).data;
+ assert.equal(returned.game.status,'playing');assert.equal(returned.game.winner,null);assert.equal(returned.revision,3);
+ assert.equal((await claim(host.code,3,host.token)).status,409,'The returned guest is now present');
+});
+
+test('a heartbeat that wins the database race prevents a stale disconnect claim without changing revision',async()=>{
+ const {host,guest}=await playingRoom();absentFor(host.code,1);
+ beforeRun=(sql)=>{if(sql.startsWith('UPDATE rooms SET state')&&sql.includes('guest_seen_at <= ?')){beforeRun=undefined;db.prepare('UPDATE rooms SET guest_seen_at = ? WHERE code = ?').run(Date.now(),host.code);}};
+ let result;try{result=await claim(host.code,3,host.token);}finally{beforeRun=undefined;}
+ assert.equal(result.status,409);assert.equal(result.data.game.status,'playing');assert.equal(result.data.revision,3);assert.equal(result.data.game.winner,null);
+ assert(result.data.presence[1]>=Date.now()-1000);
+ assert.equal((await move(host.code,3,{type:'end'},host.token)).status,200);
+ assert.equal((await get(host.code,guest.token)).data.game.turn,1);
+});
+
+test('concurrent move and disconnect claim commit at most one transition',async()=>{
+ const {host,guest}=await playingRoom();absentFor(host.code,0);
+ const results=await Promise.all([claim(host.code,3,guest.token),move(host.code,3,{type:'end'},host.token)]);
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+ const winner=results.find(r=>r.status===200).data,stored=(await get(host.code,guest.token)).data;
+ assert.equal(stored.revision,4);assert.equal(stored.game.status,winner.game.status);assert.equal(stored.game.winner,winner.game.winner);
+ if(stored.game.status==='playing')assert(stored.presence[0]>Date.now()-1000,'A successful move is proof of presence');
+});
+
+test('host close is forbidden during play and cannot race a second readiness confirmation',async()=>{
+ const {host}=await playingRoom();
+ const denied=await post({intent:'close',code:host.code},host.token);assert.equal(denied.status,409);assert.match(denied.data.error,/Сдаться/);assert.equal(denied.data.game.status,'playing');
+ const lobby=(await post({intent:'create'})).data,guest=(await post({intent:'join',code:lobby.code})).data;
+ await move(lobby.code,1,hostSetup,lobby.token);
+ beforeFirst=(sql)=>{if(sql.startsWith('DELETE FROM rooms')){beforeFirst=undefined;const row=db.prepare('SELECT state FROM rooms WHERE code = ?').get(lobby.code),game=JSON.parse(row.state);game.players[1].ready=true;game.status='playing';game.startedAt=Date.now();db.prepare('UPDATE rooms SET state = ?, revision = revision + 1 WHERE code = ?').run(JSON.stringify(game),lobby.code);}};
+ let closed;try{closed=await post({intent:'close',code:lobby.code,revision:2},lobby.token);}finally{beforeFirst=undefined;}
+ assert.equal(closed.status,409);assert.equal(closed.data.game.status,'playing');assert.equal(closed.data.revision,3);
+ assert.equal((await get(lobby.code,guest.token)).status,200,'Both seats survive the failed close');
+ const surrender=await move(lobby.code,3,{type:'surrender'},lobby.token);assert.equal(surrender.status,200);assert.equal(surrender.data.game.finishReason,'surrender');
+ assert.equal((await post({intent:'close',code:lobby.code,revision:4},lobby.token)).status,200);
+});
+
+const pause=(code,revision,decision,token)=>post({intent:'pause',code,revision,decision},token);
+const storedGame=code=>JSON.parse(db.prepare('SELECT state FROM rooms WHERE code = ?').get(code).state);
+const resources=game=>({turn:game.turn,round:game.round,ap:game.ap,players:game.players.map(p=>({money:p.money,earned:p.earned,hand:p.hand,deck:p.deck,nodes:p.nodes,layout:p.layout,reserve:p.reserve}))});
+
+test('mutual pause requires another player, pending requests do not block play, and pause preserves resources',async()=>{
+ const {host,guest}=await playingRoom();
+ assert.equal((await pause(host.code,3,'request','wrong')).status,403);
+ assert.equal((await pause(host.code,3,'invented',host.token)).status,400);
+ const requested=await pause(host.code,3,'request',host.token);assert.equal(requested.status,200);assert.deepEqual(requested.data.game.pause,{requestedBy:0,pausedAt:null});
+ assert.equal((await pause(host.code,4,'request',guest.token)).status,409,'A second request is not implicit consent');
+ assert.equal((await pause(host.code,4,'accept',host.token)).status,409);
+ assert.equal((await pause(host.code,4,'decline',host.token)).status,409);
+ assert.equal((await pause(host.code,4,'cancel',guest.token)).status,409);
+ assert.equal((await pause(host.code,4,'resume',host.token)).status,409);
+ const pendingMove=await move(host.code,4,{type:'end'},host.token);assert.equal(pendingMove.status,200);assert.equal(pendingMove.data.game.turn,1);
+ const before=storedGame(host.code),accepted=await pause(host.code,5,'accept',guest.token);assert.equal(accepted.status,200);assert.equal(accepted.data.game.pause.requestedBy,0);assert(accepted.data.game.pause.pausedAt>0);assert.equal(accepted.data.revision,6);
+ assert.deepEqual(resources(storedGame(host.code)),resources(before));
+ const paused=storedGame(host.code);
+ assert.equal(actionStatus(viewGame(paused,1),{type:'draw'}).ok,false);
+ assert.throws(()=>applyAction(paused,1,{type:'draw'}),/паузе/,'The shared engine rejects actions even without the route');
+ for(const action of [{type:'draw'},{type:'end'},{type:'exchange',card:'ddos',kind:'economy'},{type:'card',card:'recon',cell:0,side:'enemy'},{type:'reserve',counter:'auth'}])assert.equal((await move(host.code,6,action,guest.token)).status,400);
+ assert.deepEqual(resources(storedGame(host.code)),resources(before));
+ const other=(await get(host.code,host.token)).data;assert.deepEqual(other.game.pause,accepted.data.game.pause);assert.deepEqual(other.game.players[1].hand,[]);assert.deepEqual(other.game.players[1].layout,{});
+ assert.equal((await post({intent:'close',code:host.code,revision:6},host.token)).status,409,'Pause cannot erase an active match');
+});
+
+test('agreed pause blocks technical losses and either participant can resume with a fresh grace period',async()=>{
+ const {host,guest}=await playingRoom();
+ await pause(host.code,3,'request',guest.token);await pause(host.code,4,'accept',host.token);
+ absentFor(host.code,0);absentFor(host.code,1);
+ const denied=await claim(host.code,5,host.token);assert.equal(denied.status,409);assert.match(denied.data.error,/паузе/);assert.equal(denied.data.game.winner,null);
+ const before=storedGame(host.code),resumed=await pause(host.code,5,'resume',host.token);assert.equal(resumed.status,200);assert.equal(resumed.data.game.pause,undefined);assert(resumed.data.game.resumedAt>0);assert.deepEqual(resources(storedGame(host.code)),resources(before));
+ assert.equal((await claim(host.code,6,host.token)).status,409,'The absent guest gets a fresh 120 seconds from resume');
+ assert.equal((await pause(host.code,6,'resume',guest.token)).status,409,'Duplicate resume cannot keep extending the grace period');
+ const restored=(await get(host.code,guest.token)).data;assert.equal(restored.game.resumedAt,resumed.data.game.resumedAt);assert.equal(restored.game.pause,undefined);
+ await pause(host.code,6,'request',host.token);await pause(host.code,7,'accept',guest.token);
+ const resumedByRequester=await pause(host.code,8,'resume',host.token);assert.equal(resumedByRequester.status,200);assert.equal(resumedByRequester.data.game.pause,undefined);
+ await pause(host.code,9,'request',host.token);await pause(host.code,10,'accept',guest.token);
+ const resumedByAccepter=await pause(host.code,11,'resume',guest.token);assert.equal(resumedByAccepter.status,200);assert.equal(resumedByAccepter.data.game.pause,undefined);
+});
+
+test('decline and cancel only clear pending requests; surrender clears an agreed pause',async()=>{
+ const {host,guest}=await playingRoom();
+ await pause(host.code,3,'request',host.token);
+ const declined=await pause(host.code,4,'decline',guest.token);assert.equal(declined.status,200);assert.equal(declined.data.game.pause,undefined);
+ await pause(host.code,5,'request',guest.token);
+ const cancelled=await pause(host.code,6,'cancel',guest.token);assert.equal(cancelled.status,200);assert.equal(cancelled.data.game.pause,undefined);
+ assert.equal((await pause(host.code,7,'accept',host.token)).status,409);
+ await pause(host.code,7,'request',host.token);await pause(host.code,8,'accept',guest.token);
+ assert.equal((await pause(host.code,9,'decline',guest.token)).status,409);assert.equal((await pause(host.code,9,'cancel',host.token)).status,409);
+ const ended=await move(host.code,9,{type:'surrender'},guest.token);assert.equal(ended.status,200);assert.equal(ended.data.game.winner,0);assert.equal(ended.data.game.finishReason,'surrender');assert.equal(ended.data.game.pause,undefined);
+ assert.equal((await pause(host.code,10,'resume',host.token)).status,409);assert.equal((await pause(host.code,10,'request',host.token)).status,409);
+ await move(host.code,10,{type:'rematch'},host.token);const rematch=await move(host.code,11,{type:'rematch'},guest.token);assert.equal(rematch.status,200);assert.equal(rematch.data.game.pause,undefined);assert.equal(rematch.data.game.resumedAt,undefined);
+ assert.equal((await pause(host.code,12,'request',host.token)).status,409,'A new setup is not playing');
+});
+
+test('simultaneous pause requests and accept/cancel race commit only one state transition',async()=>{
+ const {host,guest}=await playingRoom();
+ const requested=await Promise.all([pause(host.code,3,'request',host.token),pause(host.code,3,'request',guest.token)]);assert.deepEqual(requested.map(r=>r.status).sort(),[200,409]);
+ const seat=requested.find(r=>r.status===200).data.game.pause.requestedBy,requester=seat===0?host:guest,other=seat===0?guest:host;
+ const decisions=await Promise.all([pause(host.code,4,'accept',other.token),pause(host.code,4,'cancel',requester.token)]);assert.deepEqual(decisions.map(r=>r.status).sort(),[200,409]);
+ const result=decisions.find(r=>r.status===200).data,current=(await get(host.code,host.token)).data;assert.equal(current.revision,5);assert.deepEqual(current.game.pause,result.game.pause);assert.equal(current.game.ap,3);assert.equal(current.game.turn,0);
+});
+
+test('accepting a pause races safely with an already submitted gameplay action',async()=>{
+ const {host,guest}=await playingRoom();await pause(host.code,3,'request',guest.token);
+ const results=await Promise.all([pause(host.code,4,'accept',host.token),move(host.code,4,{type:'end'},host.token)]);assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+ const current=(await get(host.code,host.token)).data;assert.equal(current.revision,5);
+ if(current.game.pause?.pausedAt!=null){assert.equal(current.game.turn,0);assert.equal((await move(host.code,5,{type:'end'},host.token)).status,400);}else {assert.equal(current.game.turn,1);assert.equal(current.game.pause.pausedAt,null);}
 });

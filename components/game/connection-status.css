@@ -1,0 +1,12 @@
+.connection-recovery{display:flex;align-items:flex-start;gap:.65rem;padding:.8rem 1rem;border:1px solid #dba34e66;border-radius:12px;background:#292319;color:#f4d9a7;max-width:960px;width:calc(100% - 24px);margin:.65rem auto;box-sizing:border-box}
+.connection-recovery>svg{flex:none;margin-top:.1rem}
+.connection-recovery-copy{flex:1;min-width:0}
+.connection-recovery strong{display:block;font-size:.86rem;line-height:1.4}
+.connection-recovery p{font-size:.78rem;line-height:1.5;color:#cbbd9f;margin:.25rem 0 0}
+.connection-recovery b{white-space:nowrap;font-variant-numeric:tabular-nums;color:#ffe5b2}
+.connection-recovery-button{flex:none;min-height:42px;font-size:.76rem!important;display:flex;align-items:center;justify-content:center;gap:.4rem}
+.room-panel .connection-recovery{width:100%;margin:.8rem 0}
+.room-readiness{padding:.8rem;border:1px solid #a2c86344;border-radius:10px;background:#a2c8630a;line-height:1.5}
+.room-readiness strong{display:block;font-size:.9rem}
+.room-readiness p{font-size:.82rem;margin:.35rem 0 0!important}
+@media(max-width:540px){.connection-recovery{flex-wrap:wrap}.connection-recovery-button{margin-left:1.8rem;width:calc(100% - 1.8rem)}}

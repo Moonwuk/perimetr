@@ -1,0 +1,7 @@
+.pause-status{width:calc(100% - 24px);max-width:960px;margin:.65rem auto;padding:.8rem 1rem;box-sizing:border-box;border:1px solid #9ebcc65c;border-radius:12px;background:#17252af5;box-shadow:0 8px 28px #0009;pointer-events:auto;color:#e4f3ef}
+.pause-status-heading{display:flex;align-items:center;gap:.6rem;font-size:.86rem}
+.pause-status-heading>svg{flex:none;color:#b6ec73}
+.pause-status p{font-size:.78rem;line-height:1.45;color:#a8bec2;margin:.4rem 0}
+.pause-status-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.pause-status-actions>button{min-height:42px;font-size:.75rem!important;padding:.4rem .65rem;display:flex;align-items:center;justify-content:center;gap:.35rem;flex:1;line-height:1.35}
+.room-panel .pause-status{width:100%;margin:.8rem 0}

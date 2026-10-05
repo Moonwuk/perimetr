@@ -1,5 +1,5 @@
 'use client';
-import {useRef,useState} from 'react';
+import {useRef,useState,type ReactNode} from 'react';
 import {CircleHelp,Coins,Flag,Info,LoaderCircle,Menu,Network,Play,Radio,ScanLine,Shield,Shuffle,Wifi,X,Zap} from 'lucide-react';
 import {GridBoard,actionFor,type Selection} from './board';
 import {Hand} from './hand';
@@ -12,6 +12,7 @@ import {CARDS,NODES,MAX_ROUNDS,MONEY_GOAL,actionStatus,cardReadiness,coordinate,
 export type TableDetail='card'|'node'|'log'|'finance'|'exchange'|'menu'|'reserve'|'room'|'guide';
 type Props={
  view:View;card:CardId|null;selection:Selection|null;side:Side;category:CardKind|'all';busy:boolean;online?:boolean;connection?:string;opponentStatus?:string;
+ feedback?:ReactNode;hasFeedback?:boolean;recovery?:ReactNode;
  onCard:(card:CardId)=>void;onCell:(selection:Selection)=>void;onSide:(side:Side)=>void;
  onCategory:(kind:CardKind|'all')=>void;onAction:(action:Action,origin?:CardPlayOrigin)=>void;onEnd:()=>void;
  onDetails:(detail:TableDetail)=>void;onClear:()=>void;
@@ -26,14 +27,14 @@ function dropAt(table:HTMLElement|null,id:CardId,point:DragPoint){
  return {target:cell&&(side==='own'||side==='enemy')&&Number.isInteger(index)&&index>=0&&index<25?{cell:index,side} as Selection:null,globalZone:false};
 }
 
-export function DuelTable({view,card,selection,side,category,busy,online,connection,opponentStatus,onCard,onCell,onSide,onCategory,onAction,onEnd,onDetails,onClear}:Props){
- const me=view.players[view.viewer],enemy=view.players[1-view.viewer],myTurn=view.status==='playing'&&view.turn===view.viewer;
+export function DuelTable({view,card,selection,side,category,busy,online,connection,opponentStatus,feedback,hasFeedback,recovery,onCard,onCell,onSide,onCategory,onAction,onEnd,onDetails,onClear}:Props){
+ const me=view.players[view.viewer],enemy=view.players[1-view.viewer],myTurn=view.status==='playing'&&view.turn===view.viewer&&!view.pause?.pausedAt;
  const tableRef=useRef<HTMLElement>(null),dragRef=useRef<CardDragState|null>(null);
  const [drag,setDrag]=useState<CardDragState|null>(null);
  const cancelDrag=()=>{dragRef.current=null;setDrag(null);};
  const dragControls=useCardDrag({
   enabled:myTurn&&!busy,selected:card,
-  resetKey:[view.matchNumber,view.viewer,view.turn,view.round,view.status,category,me.hand.join(',')].join(':'),
+  resetKey:[view.matchNumber,view.viewer,view.turn,view.round,view.status,view.pause?.pausedAt,category,me.hand.join(',')].join(':'),
   onStart:(id,point)=>{onCard(id);const next={card:id,point,startedAt:performance.now(),target:null,globalZone:false};dragRef.current=next;setDrag(next);},
   onMove:point=>{const current=dragRef.current;if(!current)return;const next={...current,point,...dropAt(tableRef.current,current.card,point)};dragRef.current=next;setDrag(next);},
   onDrop:point=>{
@@ -64,7 +65,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
   <header className="table-toolbar">
    <button className="table-icon" onClick={()=>onDetails('menu')} aria-label="Меню матча"><Menu size={20}/></button>
    <span className="table-round">Раунд <b>{view.round}</b><small>/{MAX_ROUNDS}</small></span>
-   <strong className={myTurn?'your-turn':''}>{view.status==='finished'?'Матч завершён':myTurn?'Ваш ход':'Ход соперника'}</strong>
+   <strong className={myTurn?'your-turn':''}>{view.status==='finished'?'Матч завершён':view.pause?.pausedAt?'Пауза':myTurn?'Ваш ход':'Ход соперника'}</strong>
    <button className="table-icon" onClick={()=>onDetails('guide')} aria-label="Как сделать ход"><CircleHelp size={19}/></button>
    {online?<button className={`table-icon connection-icon ${connection==='Подключено'?'connected':'disconnected'}`} onClick={()=>onDetails('room')} aria-label={`Комната: ${connection}. ${opponentStatus}`}><Wifi size={18}/></button>:<button className="table-icon" onClick={()=>onDetails('log')} aria-label="Журнал матча"><Radio size={18}/></button>}
   </header>
@@ -83,6 +84,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
     <div className="field-switch" role="group" aria-label="Какое поле показать"><button aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')}><ScanLine size={14}/>Соперник</button><button aria-pressed={side==='own'} onClick={()=>onSide('own')}><Shield size={14}/>Моя сеть{threats>0&&<b>{threats}</b>}</button></div>
     {side==='enemy'?<button className={!card?'active':''} onClick={onClear} aria-label="Разведка без карты: 1 действие, 0 кредитов" aria-pressed={!card}>Скан <small>1 <Zap size={11}/></small></button>:<button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label="Подготовить секретное дежурство"><Shield size={14}/>{me.reserve?'Готово':'Дежурство'}</button>}
    </div>
+   <div className="table-recovery">{recovery}</div>
    <div className="table-field"><GridBoard view={view} side={side} selected={drag?drag.target:selection} card={card} onSelect={onCell} drop={drag?.target?{selection:drag.target,valid:!!dragStatus?.ok}:null}/></div>
    {card?<p className="table-field-tip">{CARDS[card].name}{CARDS[card].side==='none'?' · без выбора цели':fieldSelection?' · '+coordinate(fieldSelection.cell):' · выберите цель'}</p>:<button className="table-field-tip" onClick={()=>onDetails('guide')}>{side==='own'?'Узел → действия без карт · щит → защита всей сети':'? — скрытая клетка · разведайте, чтобы найти узлы'}</button>}
   </section>
@@ -106,7 +108,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
    {card?<div className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`}>
     <div className="table-card-heading"><strong title={CARDS[card].name}>{CARDS[card].name}</strong><button className="table-card-info" onClick={()=>onDetails('card')} aria-label={`О карте «${CARDS[card].name}»`}><Info size={12}/>О карте</button></div>
     <span>{drag?(dragStatus?.ok?dragStatus.preview:dragLabel):summary}</span>
-   </div>:<button className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`} onClick={()=>onDetails(node?'node':'guide')} aria-label={node?'Подробнее об узле':'Как выбрать действие'}>
+   </div>:!selection&&hasFeedback?feedback:<button className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`} onClick={()=>onDetails(node?'node':'guide')} aria-label={node?'Подробнее об узле':'Как выбрать действие'}>
     <strong>{selection?`${coordinate(selection.cell)} · ${node?.name??'Разведка'}`:'Выберите карту · затем цель'}<Info size={14}/></strong>
     <span>{drag?(dragStatus?.ok?dragStatus.preview:dragLabel):summary}</span>
    </button>}

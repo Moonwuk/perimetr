@@ -4,6 +4,7 @@ import {useCallback,useLayoutEffect,useRef,useState,type CSSProperties} from 're
 import {createPortal} from 'react-dom';
 import {Check,Coins,ScanLine,Shield,Zap} from 'lucide-react';
 import {CARDS,incomeOf,type Action,type CardId,type CardKind,type Side,type View} from '@/lib/game/engine';
+import {describeAction} from '@/lib/game/action-feedback';
 import {CardFace} from './card-face';
 import './card-play-effect.css';
 
@@ -26,10 +27,10 @@ function targetElement(target:Target){
 }
 function resultOf(action:CardAction,before:View,after:View){
  const id=action.card,me=after.players[before.viewer],oldMe=before.players[before.viewer];
- const freshLogs=after.logs.filter(log=>log.id>before.serial);
- const blocked=CARDS[id].kind==='attack'&&freshLogs.some(log=>log.tone==='defense'&&/ отразил[ао]? /.test(log.text));
+ const blocked=describeAction(before,action,after)?.blocked??false;
  if(blocked)return {blocked,label:'Отражено защитой'};
  const lost=before.players[1-before.viewer].money-after.players[1-before.viewer].money;
+ if(id==='fraud'&&lost===0)return {blocked,label:'В казне соперника 0 ¤'};
  if(['ddos','operation','fraud'].includes(id)&&lost>0)return {blocked,label:id==='fraud'?`Украдено ${lost} ¤`:`Сопернику −${lost} ¤`};
  if(id==='recon')return {blocked,label:`Разведано: +${me.scanned.length-oldMe.scanned.length} клеток`};
  if(id==='expand'||id==='optimize')return {blocked,label:`+${incomeOf(me)-incomeOf(oldMe)} дохода / раунд`};

@@ -17,6 +17,7 @@ for(const name of deployFiles){
 }
 await cp(join(root,'server/README.md'),join(staging,'README.md'));
 await cp(join(root,'server/VERIFICATION.md'),join(staging,'VERIFICATION.md'));
+await cp(join(root,'docs/MATCH_FLOW.md'),join(staging,'MATCH_FLOW.md'));
 await writeFile(join(staging,'BUILD.json'),JSON.stringify({game:'perimeter',version:'0.5.0',runtime:'Node.js 24',builtAt:new Date().toISOString(),nodeVersion:process.versions.node},null,2)+'\n');
 const lines=[];
 async function hashes(directory){
