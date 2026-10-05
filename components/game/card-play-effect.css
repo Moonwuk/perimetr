@@ -1,0 +1,26 @@
+/* Confirmed play feedback is decorative and never captures a touch or changes layout. */
+.card-play-effect{--play-color:#ff5c65;position:fixed;inset:0;z-index:85;pointer-events:none;overflow:hidden;contain:strict;color:var(--play-color)}
+.card-play-effect.defense{--play-color:#44e2ef}.card-play-effect.economy{--play-color:#ffc84a}
+.card-play-flight{position:absolute;left:0;top:0;width:94px;height:124px;will-change:transform,opacity;transform-origin:center;filter:drop-shadow(0 0 9px var(--play-color));animation:card-play-flight 360ms cubic-bezier(.3,.05,.3,1) both}
+.card-play-flight>.card-face{width:100%;height:100%}
+.card-play-trail{position:absolute;inset:0;overflow:visible}.card-play-trail path{fill:none;stroke:var(--play-color);stroke-width:3;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 5px currentColor);animation:card-play-trail 420ms ease-out both}
+.card-play-impact{position:absolute;left:var(--play-to-x);top:var(--play-to-y);width:var(--play-target-size);height:var(--play-target-size);transform:translate(-50%,-50%);display:grid;place-items:center}
+.card-play-ring{position:absolute;inset:0;border:3px solid currentColor;border-radius:14px;background:color-mix(in srgb,currentColor 20%,transparent);box-shadow:inset 0 0 16px currentColor,0 0 20px color-mix(in srgb,currentColor 60%,transparent);opacity:0;animation:card-play-impact 460ms 240ms ease-out both}
+.card-play-symbol{filter:drop-shadow(0 2px 2px #07131d);opacity:0;animation:card-play-symbol 400ms 250ms ease-out both}
+.card-play-spark{position:absolute;left:50%;top:50%;height:4px;width:15px;border-radius:4px;background:currentColor;box-shadow:0 0 6px currentColor;opacity:0;animation:card-play-spark 320ms 250ms ease-out both;--spark-angle:-35deg}
+.card-play-spark.two{--spark-angle:35deg}.card-play-spark.three{--spark-angle:145deg}.card-play-spark.four{--spark-angle:215deg}
+.card-play-effect.defense .card-play-ring,.card-play-effect.blocked .card-play-ring{border-radius:45% 45% 55% 55%;border-width:3px}
+.card-play-effect.blocked .card-play-impact,.card-play-effect.blocked .card-play-result{color:#44e2ef}
+.card-play-result{position:absolute;left:var(--play-label-x);top:var(--play-label-y);transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;min-width:120px;max-width:236px;padding:6px 12px;border:1px solid currentColor;border-radius:7px;background:#09151ff5;box-shadow:0 4px 15px #0009;white-space:nowrap;opacity:0;animation:card-play-result 540ms 200ms ease-out both}
+.card-play-result>span{display:flex;align-items:center;gap:4px;font-size:10px;line-height:1.2;color:#d2dfe4}.card-play-result>strong{font-size:13px;line-height:1.3;font-weight:650}
+@keyframes card-play-flight{0%{transform:translate(calc(var(--play-from-x) - 47px),calc(var(--play-from-y) - 62px)) rotate(-6deg) scale(.86);opacity:.98}55%{transform:translate(calc(var(--play-mid-x) - 47px),calc(var(--play-mid-y) - 62px)) rotate(5deg) scale(.8);opacity:1}100%{transform:translate(calc(var(--play-to-x) - 47px),calc(var(--play-to-y) - 62px)) rotate(0) scale(.16);opacity:0}}
+@keyframes card-play-trail{0%{stroke-dashoffset:1;opacity:0}20%{opacity:.65}75%{stroke-dashoffset:0;opacity:.55}100%{stroke-dashoffset:0;opacity:0}}
+@keyframes card-play-impact{0%{transform:scale(.5);opacity:0}24%{transform:scale(1);opacity:1}65%{opacity:.6}100%{transform:scale(1.16);opacity:0}}
+@keyframes card-play-symbol{0%{transform:scale(.6);opacity:0}25%,65%{transform:scale(1);opacity:1}100%{transform:scale(1.05);opacity:0}}
+@keyframes card-play-spark{0%{transform:rotate(var(--spark-angle)) translateX(13px) scaleX(.7);opacity:0}20%{opacity:1}100%{transform:rotate(var(--spark-angle)) translateX(51px) scaleX(.35);opacity:0}}
+@keyframes card-play-result{0%{opacity:0}12%,80%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){
+ .card-play-flight,.card-play-trail,.card-play-spark{display:none}
+ .card-play-ring,.card-play-symbol,.card-play-result{animation:none;opacity:1}
+ .card-play-ring{transform:none;box-shadow:none;background:transparent}
+}

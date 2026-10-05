@@ -1,6 +1,9 @@
 # Use only with an SSH tunnel; the HTTP port is not exposed to the Internet.
 services:
   app:
+    # Host port publishing needs a non-internal bridge. Keep the production
+    # backend isolated; this extra network exists only in the local override.
+    networks: [backend, edge]
     environment:
       NODE_ENV: development
       PUBLIC_ORIGIN: http://127.0.0.1:8080

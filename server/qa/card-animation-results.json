@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "checks": [
+    "select and missed drop do not animate",
+    "server409 does not animate or charge",
+    "confirmed touchdrop has one economy effect and one payment",
+    "tap reconnaissance animates actual nine revealed cells",
+    "countered DDoS shows blocked not damage",
+    "normal effect expires after780ms",
+    "reducedmotion hides travel and preserves result",
+    "overlay never captures pointer",
+    "resize removes effect",
+    "390px and320px layouts fit"
+  ],
+  "effects": [
+    "expand",
+    "recon",
+    "ddos",
+    "shield"
+  ],
+  "pageErrors": []
+}

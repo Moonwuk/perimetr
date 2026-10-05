@@ -37,11 +37,11 @@ jobs:
         run: |
           cd server/releases/perimeter-server-0.5.0
           sh deploy/setup.sh --local
-          trap 'sh deploy/manage.sh --local stop' EXIT
+          trap 'result=$?; if [ "$result" -ne 0 ]; then sh deploy/manage.sh --local logs; fi; sh deploy/manage.sh --local stop; exit "$result"' EXIT
           sh deploy/manage.sh --local start
           ready=0
           for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:8080/api/health; then ready=1; break; fi
+            if curl --fail --silent --max-time 3 http://127.0.0.1:8080/api/health; then ready=1; break; fi
             sleep 2
           done
           test "$ready" -eq 1
@@ -50,4 +50,5 @@ jobs:
           sh deploy/manage.sh --local snapshots
           sh deploy/manage.sh --local metrics metrics.json
           test -s metrics.json
+          docker compose --env-file deploy/.env -f deploy/compose.yml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
       - run: pnpm android:web

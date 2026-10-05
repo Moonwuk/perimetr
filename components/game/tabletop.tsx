@@ -4,6 +4,7 @@ import {CircleHelp,Coins,Flag,Info,LoaderCircle,Menu,Network,Play,Radio,ScanLine
 import {GridBoard,actionFor,type Selection} from './board';
 import {Hand} from './hand';
 import {CardFace} from './card-face';
+import type {CardPlayOrigin} from './card-play-effect';
 import {useCardDrag,type CardDragPoint as DragPoint} from './use-card-drag';
 import {trackMetric} from '@/lib/game/metrics';
 import {CARDS,NODES,MAX_ROUNDS,MONEY_GOAL,actionStatus,cardReadiness,coordinate,incomeOf,type Action,type CardId,type CardKind,type Side,type View} from '@/lib/game/engine';
@@ -12,7 +13,7 @@ export type TableDetail='card'|'node'|'log'|'finance'|'exchange'|'menu'|'reserve
 type Props={
  view:View;card:CardId|null;selection:Selection|null;side:Side;category:CardKind|'all';busy:boolean;online?:boolean;connection?:string;opponentStatus?:string;
  onCard:(card:CardId)=>void;onCell:(selection:Selection)=>void;onSide:(side:Side)=>void;
- onCategory:(kind:CardKind|'all')=>void;onAction:(action:Action)=>void;onEnd:()=>void;
+ onCategory:(kind:CardKind|'all')=>void;onAction:(action:Action,origin?:CardPlayOrigin)=>void;onEnd:()=>void;
  onDetails:(detail:TableDetail)=>void;onClear:()=>void;
 };
 
@@ -44,7 +45,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
    if(!hit.target&&!hit.globalZone){record('cancelled');return;}
    const move=actionFor(view,current.card,hit.target);
    // The latest view is authoritative; a stale hover can never authorize a move.
-   if(move&&actionStatus(view,move).ok){record('submitted');onAction(move);}else record('invalid');
+   if(move&&actionStatus(view,move).ok){record('submitted');onAction(move,{x:Math.max(64,Math.min(point.x,window.innerWidth-64)),y:Math.max(6,point.y-168)+74});}else record('invalid');
   },
   onCancel:()=>{const current=dragRef.current;if(current)trackMetric('card_drag',{card:current.card,outcome:'cancelled',durationMs:performance.now()-current.startedAt});cancelDrag();},
  });
