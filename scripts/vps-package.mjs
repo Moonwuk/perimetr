@@ -11,10 +11,9 @@ await rm(staging,{recursive:true,force:true});
 await mkdir(staging);
 await cp(join(root,'server/dist'),staging,{recursive:true});
 await mkdir(join(staging,'deploy'));
-for(const entry of await readdir(join(root,'server/deploy'),{withFileTypes:true})){
- if(!entry.isFile())continue;
- if(!['Dockerfile','Dockerfile.dockerignore','Caddyfile','env.example','.dockerignore'].includes(entry.name)&&!/^[-\w]+\.(sh|mjs|yml|yaml|md)$/.test(entry.name))continue;
- await cp(join(root,'server/deploy',entry.name),join(staging,'deploy',entry.name));
+const deployFiles=['Dockerfile','Dockerfile.dockerignore','Caddyfile','compose.yml','compose.local.yml','env.example','setup.sh','manage.sh','backup.mjs','restore.mjs','export-metrics.mjs'];
+for(const name of deployFiles){
+ await cp(join(root,'server/deploy',name),join(staging,'deploy',name));
 }
 await cp(join(root,'server/README.md'),join(staging,'README.md'));
 await cp(join(root,'server/VERIFICATION.md'),join(staging,'VERIFICATION.md'));
