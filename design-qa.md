@@ -62,3 +62,22 @@ No uncaught page errors or console errors were observed in the broad five-viewpo
 - `git diff --check`: passed.
 - No balance, engine, network protocol or deployment configuration changed.
 - Multiplayer transport was not re-tested in this visual-only follow-up; existing engine/room tests still pass.
+
+
+## Follow-up: direct card selection and online readiness
+
+This follow-up supersedes the earlier tap-to-inspect behavior described above. A hand tap or keyboard Enter selects the card and highlights legal targets without opening a sheet. Repeated taps preserve the selection. Inspection is now an explicit “О карте” control; closing it preserves the card and target. The play button shows both credit and action prices, and only explicit play spends them. Targetless cards clear stale targets, do not highlight board cells and say that no target is needed. The tutorial and accessible labels describe the new flow.
+
+Online preparation now exposes the ready action before the customizable board and defense controls. The screen shows whether the opponent has joined and confirmed readiness. The waiting copy distinguishes an absent player from a connected player who has not confirmed. Both players still explicitly approve their own deployment; the server starts automatically after the second approval.
+
+### Verification
+
+- Actual Chromium + Vite app at 320 × 568, 390 × 844, 844 × 390 and 1280 × 900: selection/repeated selection has no modal or debit; legal target highlights; explicit inspection and closing preserve selection; a New Server play deducts exactly 240 credits and 1 action; unavailable attacks remain selectable with exchange accessible; keyboard Enter selects; command controls fit the viewport. No uncaught page errors in these scenarios.
+- Targetless fixture: New Plan and Quiet Passage clear the previous target, ignore board clicks as targets, and deduct exactly 20/10 credits and one action only on explicit play. [Machine-readable results](docs/perimeter/qa/selection/results.json).
+- Mobile screenshots at 320 × 568 and 390 × 844 were opened and visually inspected for the new command footer. [Selected card at 320px](docs/perimeter/qa/selection/selected-320.png).
+- 53 engine/save/room tests pass, including both readiness orders and host readiness before the second player joins.
+- Actual local Cloudflare Worker + D1 with two independent Chromium contexts: host ready before guest admission, guest ready first, and simultaneous confirmation with a deliberately stale revision all automatically start both clients. The 409 deployment conflict is recovered with exactly one retry. First-turn ownership is correct; no page errors or horizontal overflow. The top ready button fits the first screen at both 320 × 568 and 390 × 844. [Browser report](docs/perimeter/qa/selection/network-start-report.json), [320px setup screenshot](docs/perimeter/qa/selection/setup-320.png).
+- Full `pnpm cf:test` also passes against real local Worker + D1: independent HTTP clients, startup, hidden data, concurrent actions, reconnect, rematch, financial finish, assets/CSP, admission limits and scheduled handler.
+- Lint, TypeScript and both web and Android web-asset builds pass; git diff whitespace check passes.
+
+Production room and physical-device behavior are not established by these local checks. No signed APK, server rules, balancing changes or protocol changes are included in this follow-up.

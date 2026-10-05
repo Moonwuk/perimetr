@@ -119,3 +119,6 @@
  .mode-card>svg:first-child { width:28px; height:28px; }
  .mode-card>svg:last-child { width:20px; height:20px; }
 }
+
+/* Online setup makes the two-player ready gate visible before customization. */
+.setup-start{display:flex;flex-direction:column;gap:12px;max-width:520px;margin:20px 0 0;padding:16px;border:1px solid #425748;border-radius:8px;background:#17261e}.setup-readiness{display:flex;flex-direction:column;gap:5px;color:#a8beb0;font-size:14px;line-height:1.45}.setup-readiness b{color:#d5ecc2;font-weight:500}.setup-start>.primary-button{width:100%;min-height:48px;justify-content:center}.setup-start>small{font-size:12px;line-height:1.5;color:#a3b8ac}

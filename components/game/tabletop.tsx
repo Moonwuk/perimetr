@@ -45,7 +45,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
     {side==='enemy'?<button className={!card?'active':''} onClick={onClear} aria-label="Разведка без карты: 1 действие, 0 кредитов" aria-pressed={!card}>Скан <small>1 <Zap size={11}/></small></button>:<button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label="Подготовить секретное дежурство"><Shield size={14}/>{me.reserve?'Готово':'Дежурство'}</button>}
    </div>
    <div className="table-field"><GridBoard view={view} side={side} selected={selection} card={card} onSelect={onCell}/></div>
-   <button className="table-field-tip" onClick={()=>onDetails(card?'card':'guide')}>{card?`${CARDS[card].name}${selection?' · '+coordinate(selection.cell):' · выберите цель'}`:side==='own'?'Узел → действия без карт · щит → защита всей сети':'? — скрытая клетка · разведайте, чтобы найти узлы'}</button>
+   {card?<p className="table-field-tip">{CARDS[card].name}{CARDS[card].side==='none'?' · без выбора цели':selection?' · '+coordinate(selection.cell):' · выберите цель'}</p>:<button className="table-field-tip" onClick={()=>onDetails('guide')}>{side==='own'?'Узел → действия без карт · щит → защита всей сети':'? — скрытая клетка · разведайте, чтобы найти узлы'}</button>}
   </section>
 
   <section className={`table-company table-own ${side==='own'?'viewing':''}`} aria-label="Ваша компания">
@@ -64,13 +64,16 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
   </section>
 
   <section className="table-command" aria-label="Выбранное действие" aria-live="polite">
-   <button className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`} onClick={()=>onDetails(card?'card':node?'node':'guide')} aria-label={card?'Описание выбранной карты':node?'Подробнее об узле':'Как выбрать действие'}>
-    <strong>{card?CARDS[card].name:selection?`${coordinate(selection.cell)} · ${node?.name??'Разведка'}`:'Карта по нажатию · листайте руку'}<Info size={14}/></strong>
+   {card?<div className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`}>
+    <div className="table-card-heading"><strong title={CARDS[card].name}>{CARDS[card].name}</strong><button className="table-card-info" onClick={()=>onDetails('card')} aria-label={`О карте «${CARDS[card].name}»`}><Info size={12}/>О карте</button></div>
     <span>{summary}</span>
-   </button>
+   </div>:<button className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`} onClick={()=>onDetails(node?'node':'guide')} aria-label={node?'Подробнее об узле':'Как выбрать действие'}>
+    <strong>{selection?`${coordinate(selection.cell)} · ${node?.name??'Разведка'}`:'Выберите карту · затем цель'}<Info size={14}/></strong>
+    <span>{summary}</span>
+   </button>}
    {card&&<button className="table-icon table-exchange" disabled={!canExchange} onClick={()=>onDetails('exchange')} aria-label={(me.exchangeRound??0)===view.round?'Замена уже использована':'Бесплатно заменить карту'} title="Бесплатно заменить карту"><Shuffle size={18}/><small>{(me.exchangeRound??0)===view.round?'0/1':'1/1'}</small></button>}
    {(card||selection)&&<button className="table-icon table-clear" aria-label="Отменить выбор" onClick={onClear}><X size={18}/></button>}
-   {action&&<button className="table-play" disabled={!myTurn||busy||!status?.ok} onClick={()=>onAction(action)}>{busy?<LoaderCircle className="spin" size={16}/>:<Play size={15}/>}<span>{card?'Сыграть':'Разведать'}</span></button>}
+   {action&&<button className="table-play" disabled={!myTurn||busy||!status?.ok} onClick={()=>onAction(action)} aria-label={card?`Сыграть «${CARDS[card].name}» за ${CARDS[card].money} кредитов и ${CARDS[card].cost} ${CARDS[card].cost===1?'действие':'действия'}`:'Разведать за 1 действие'}>{busy?<LoaderCircle className="spin" size={16}/>:!card&&<Play size={15}/>}<span>{busy?'Ход…':card?'Сыграть':'Разведать'}{card&&!busy&&<small>{CARDS[card].money} ¤ · {CARDS[card].cost} ОД</small>}</span></button>}
   </section>
  </main>;
 }

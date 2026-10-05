@@ -126,3 +126,11 @@ button.table-money{align-self:stretch;justify-content:center;flex-direction:colu
  .tabletop{max-width:1000px;grid-template-rows:42px 56px minmax(0,1fr) 59px 220px 76px}
  .table-hand .hand-card.comic-hand-card{flex-basis:150px;width:150px}
 }
+
+/* Card taps choose a move; inspection is an explicit, separate control. */
+.table-card-heading{display:flex;align-items:center;gap:5px;min-width:0}
+.table-card-heading>strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:500;line-height:1.2}
+.table-card-info{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:24px;flex-shrink:0;border:1px solid #4b625c;border-radius:5px;padding:2px 5px;background:#22342d;color:#d1e8bc;font-size:10px;white-space:nowrap}
+.table-play>span{display:flex;flex-direction:column;align-items:center;gap:2px}
+.table-play small{font-size:10px;line-height:1.15;font-weight:400;white-space:nowrap}
+@media(max-width:350px){.table-card-heading{gap:3px}.table-card-heading>strong{font-size:10px}.table-card-info{padding-inline:3px;font-size:9px}.table-play small{font-size:9px}}

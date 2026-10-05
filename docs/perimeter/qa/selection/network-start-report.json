@@ -1,0 +1,52 @@
+{
+  "passed": true,
+  "scenarios": [
+    {
+      "mode": "host-before-join",
+      "hostBox": {
+        "x": 29,
+        "y": 369.265625,
+        "width": 332,
+        "height": 48
+      },
+      "guestBox": {
+        "x": 26,
+        "y": 390.265625,
+        "width": 268,
+        "height": 69
+      }
+    },
+    {
+      "mode": "guest-first",
+      "hostBox": {
+        "x": 29,
+        "y": 369.265625,
+        "width": 332,
+        "height": 48
+      },
+      "guestBox": {
+        "x": 26,
+        "y": 390.265625,
+        "width": 268,
+        "height": 69
+      }
+    },
+    {
+      "mode": "simultaneous",
+      "hostBox": {
+        "x": 29,
+        "y": 369.265625,
+        "width": 332,
+        "height": 48
+      },
+      "guestBox": {
+        "x": 26,
+        "y": 390.265625,
+        "width": 268,
+        "height": 69
+      }
+    }
+  ],
+  "recoveredStaleDeployments": 1,
+  "pageErrors": []
+}

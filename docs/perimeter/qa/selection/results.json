@@ -1,0 +1,62 @@
+[
+  {
+    "viewport": "320x568",
+    "checks": [
+      "tap and repeat select without modal/debit",
+      "target highlights",
+      "explicit info preserves selection",
+      "play costs visible and single debit",
+      "blocked card exchange available",
+      "keyboard Enter selects",
+      "no viewport overflow"
+    ],
+    "errors": []
+  },
+  {
+    "viewport": "390x844",
+    "checks": [
+      "tap and repeat select without modal/debit",
+      "target highlights",
+      "explicit info preserves selection",
+      "play costs visible and single debit",
+      "blocked card exchange available",
+      "keyboard Enter selects",
+      "no viewport overflow"
+    ],
+    "errors": []
+  },
+  {
+    "viewport": "844x390",
+    "checks": [
+      "tap and repeat select without modal/debit",
+      "target highlights",
+      "explicit info preserves selection",
+      "play costs visible and single debit",
+      "blocked card exchange available",
+      "keyboard Enter selects",
+      "no viewport overflow"
+    ],
+    "errors": []
+  },
+  {
+    "viewport": "1280x900",
+    "checks": [
+      "tap and repeat select without modal/debit",
+      "target highlights",
+      "explicit info preserves selection",
+      "play costs visible and single debit",
+      "blocked card exchange available",
+      "keyboard Enter selects",
+      "no viewport overflow"
+    ],
+    "errors": []
+  },
+  {
+    "fixture": [
+      "targetless cards clear old target",
+      "no misleading cell highlights",
+      "field taps do not select target",
+      "supply and stealth only charge on play"
+    ]
+  }
+]
