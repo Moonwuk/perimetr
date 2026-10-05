@@ -66,7 +66,11 @@
 .card-inspection-notes>p { font-size: 15px; line-height: 1.6; color: #bfd1db; }
 .card-inspection-notes .card-sheet-status { margin: 0; }
 .card-inspection-notes .learn-box { margin: 0; }
-.game-dialog.library-dialog { width: min(1050px, calc(100vw - 24px)); max-width: 1050px!important; }
+.game-dialog.library-dialog { width: min(1050px, calc(100vw - 24px)); max-width: 1050px!important; height: min(88svh, 1000px); overflow: hidden; grid-template-rows: auto auto minmax(0, 1fr); }
+.library-dialog>[data-slot=tabs] { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; gap: 0; }
+.library-dialog [data-slot=tabs-content] { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.library-dialog .library-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 0; }
+.library-dialog .library-tabs [data-slot=tabs-trigger] { min-width: 0; padding-inline: 3px; }
 .card-library { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: start; gap: 20px; padding: 7px 3px 10px; }
 .card-library-entry { min-width: 0; }
 .card-library-entry summary { display: block; list-style: none; cursor: pointer; border-radius: 9px; }
@@ -98,6 +102,7 @@
  .card-library-entry[open] .card-library-detail { margin: 0; }
 }
 @media (max-width: 350px) {
+ .library-dialog .library-tabs [data-slot=tabs-trigger] { font-size: 11px; }
  .card-library-entry[open] { grid-template-columns: 1fr; }
  .card-library-entry[open]>summary { width: min(100%, 210px); justify-self: center; }
  .card-library .card-face-rules>strong { font-size: 12px; }
@@ -105,4 +110,13 @@
 }
 @media (prefers-reduced-motion: reduce) {
  .hand-card.comic-hand-card .card-face, .card-library-entry summary .card-face { transition: none; }
+}
+/* On a short phone the card already carries its title and costs. Keep that
+   entire face above the action bar; the detailed rules remain scrollable. */
+@media (max-width: 600px) and (max-height: 620px) {
+ .inspect-sheet.card-inspect-sheet { max-height: 93dvh; padding-top: 18px; }
+ .card-inspect-sheet [data-slot=sheet-title], .card-inspect-sheet [data-slot=sheet-description] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+ .card-inspection-layout>.card-face { width: min(100%, calc((100dvh - 180px) * .66)); }
+ .inspect-sheet.card-inspect-sheet .card-sheet-actions { flex-direction: row; gap: 8px; }
+ .inspect-sheet.card-inspect-sheet .card-sheet-actions>button { flex: 1; font-size: 12px; padding: 10px 8px; }
 }

@@ -114,11 +114,13 @@ button.table-money{align-self:stretch;justify-content:center;flex-direction:colu
  .table-hand .hand-card.comic-hand-card{flex-basis:120px;width:120px}
  .table-hand .hand-draw{flex-basis:40px;width:40px;min-width:40px}
 }
-@media(max-height:500px) and (min-aspect-ratio:6/5){
- .tabletop{grid-template-rows:32px 43px minmax(0,1fr) 65px}
- .table-hand .compact-hand{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:165px;gap:9px;overflow-y:auto}
- .table-hand .hand-card.comic-hand-card{width:100%;height:100%}
- .table-hand .hand-draw{width:100%;min-width:0}
+@media(max-height:740px) and (min-aspect-ratio:6/5){
+ .tabletop{max-width:1100px;grid-template-columns:minmax(0,1.08fr) minmax(280px,1fr);grid-template-rows:32px 43px minmax(0,1fr) 48px 65px;grid-template-areas:'nav nav' 'field enemy' 'field hand' 'field self' 'field command';column-gap:12px;row-gap:3px}
+ .table-toolbar{grid-area:nav}.table-enemy{grid-area:enemy}.table-stage{grid-area:field}.table-own{grid-area:self}.table-hand{grid-area:hand}.table-command{grid-area:command}
+ .table-stage{grid-template-rows:34px minmax(0,1fr) 21px}
+ .table-hand .compact-hand{display:flex;align-items:center;gap:9px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity}
+ .table-hand .hand-card.comic-hand-card{flex:0 0 clamp(140px,19vw,190px);width:clamp(140px,19vw,190px);height:min(100%,220px)}
+ .table-hand .hand-draw{flex:0 0 40px;width:40px;min-width:40px;height:min(100%,220px)}
 }
 @media(min-width:1000px) and (min-height:740px){
  .tabletop{max-width:1000px;grid-template-rows:42px 56px minmax(0,1fr) 59px 220px 76px}
