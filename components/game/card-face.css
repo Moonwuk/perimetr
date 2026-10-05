@@ -120,3 +120,13 @@
  .inspect-sheet.card-inspect-sheet .card-sheet-actions { flex-direction: row; gap: 8px; }
  .inspect-sheet.card-inspect-sheet .card-sheet-actions>button { flex: 1; font-size: 12px; padding: 10px 8px; }
 }
+
+/* One effect on the face; longer rules are available only when requested. */
+.card-face.full .card-face-rules{min-height:68px;gap:0;padding:12px 10px}
+.card-more{border-top:1px solid #46616a;padding-top:10px}
+.card-more>summary{cursor:pointer;color:#cde4b6;font-size:14px;min-height:34px;line-height:1.5;padding:5px 0}
+.card-more>summary:focus-visible{outline:2px solid #caff7a;outline-offset:3px;border-radius:3px}
+.card-more>p{margin:10px 0 16px;color:#bfd1db;font-size:14px;line-height:1.6}
+.card-more .learn-box{padding-top:12px;border-top:1px solid #304956}
+
+@media(max-width:600px){.card-inspection-layout>.card-face{width:min(280px,calc((100dvh - 240px) * .66))}}

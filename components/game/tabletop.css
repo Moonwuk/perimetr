@@ -126,3 +126,28 @@ button.table-money{align-self:stretch;justify-content:center;flex-direction:colu
  .tabletop{max-width:1000px;grid-template-rows:42px 56px minmax(0,1fr) 59px 220px 76px}
  .table-hand .hand-card.comic-hand-card{flex-basis:150px;width:150px}
 }
+
+/* Card taps choose a move; inspection is an explicit, separate control. */
+.table-card-heading{display:flex;align-items:center;gap:5px;min-width:0}
+.table-card-heading>strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:500;line-height:1.2}
+.table-card-info{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:24px;flex-shrink:0;border:1px solid #4b625c;border-radius:5px;padding:2px 5px;background:#22342d;color:#d1e8bc;font-size:10px;white-space:nowrap}
+.table-play>span{display:flex;flex-direction:column;align-items:center;gap:2px}
+.table-play small{font-size:10px;line-height:1.15;font-weight:400;white-space:nowrap}
+@media(max-width:350px){.table-card-heading{gap:3px}.table-card-heading>strong{font-size:10px}.table-card-info{padding-inline:3px;font-size:9px}.table-play small{font-size:9px}}
+
+/* A held card floats above the finger; the actual drop point stays visible. */
+.hand-card.comic-hand-card{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.hand-card[data-dragging=true]{opacity:.36}
+.card-is-dragging{cursor:grabbing}
+.card-drag-layer{position:fixed;inset:0;pointer-events:none;z-index:80;color:#d8e4e9}
+.card-drag-ghost{position:absolute;width:116px;height:148px;transform:translateX(-50%) rotate(-5deg);filter:drop-shadow(0 7px 12px #000b)}
+.card-drag-ghost>.card-face{box-shadow:0 0 0 2px #d6e7e8,0 0 20px #9fced74d}
+.card-drag-layer.can-drop .card-drag-ghost>.card-face{box-shadow:0 0 0 3px #c8ff82,0 0 22px #b9f96a77}
+.card-drag-aim{position:absolute;width:20px;height:20px;border:2px solid #eff5f5;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 3px #13222bbb}
+.card-drag-layer.can-drop .card-drag-aim{border-color:#b9f96a;background:#b9f96a55}
+.card-drag-hint{position:absolute;top:max(42px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:3px;align-items:center;width:max-content;max-width:calc(100vw - 20px);border:1px solid #6e929e;border-radius:8px;background:#101d25f5;padding:7px 11px;text-align:center;box-shadow:0 4px 16px #0008}
+.card-drag-hint strong{font-size:12px;line-height:1.35;font-weight:500}.card-drag-hint>span{font-size:10px;color:#b7c9c4}.can-drop .card-drag-hint{border-color:#b9f96a;color:#dcffb7}
+.table-field .grid-cell.drop-target{opacity:1;box-shadow:inset 0 0 0 3px #d8ffa4,0 0 14px #b9f96a88;border-color:#edffd2;background:#405639}
+.table-field .grid-cell.drop-rejected{opacity:1;box-shadow:inset 0 0 0 2px #f79480;border-color:#f79480}
+.table-own.global-drop-zone{border:2px dashed #b9f96a}.table-own.global-drop-ready{border-style:solid;background:#405639;box-shadow:0 0 14px #b9f96a66}.table-own.global-drop-rejected{border-color:#f79480}
+@media(max-width:350px){.card-drag-hint strong{font-size:11px}.card-drag-hint>span{font-size:9px}.table-own.global-drop-zone .company-name strong{font-size:9px}}

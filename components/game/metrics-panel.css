@@ -1,0 +1,13 @@
+.metrics-panel{display:grid;gap:14px;min-width:0;color:#d7e6e7}
+.metrics-panel>p{margin:0;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.metrics-key-field{display:grid;gap:7px;min-width:0}
+.metrics-key-field>label{font-size:13px;color:#c7d8dc}
+.metrics-key-field>input{display:block;width:100%;min-width:0;min-height:46px;padding:10px 12px;border:1px solid #536c70;border-radius:7px;background:#12252a;color:#e9f3ef;font-size:16px;line-height:1.4}
+.metrics-key-field>input:focus-visible{outline:2px solid #b9f96a;outline-offset:2px}
+.metrics-key-field>input:read-only{opacity:.7}
+.metrics-download{display:flex;justify-content:center;align-items:center;gap:8px;min-height:46px;width:100%;padding:10px 14px;border:1px solid #d5ffa8;border-radius:8px;background:#b9f96a;color:#203415;font-size:14px;font-weight:600;cursor:pointer}
+.metrics-download:hover:not(:disabled){background:#ceff94}
+.metrics-download:disabled{background:#29402e;color:#9db58a;border-color:#4b6350;cursor:default}
+.metrics-download:focus-visible{outline:3px solid #e7ffcd;outline-offset:3px}
+.metrics-panel .metrics-feedback{font-size:12px;color:#c8e8b3}
+.metrics-panel .metrics-feedback.failed{color:#ffc0a1}

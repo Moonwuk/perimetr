@@ -1,0 +1,54 @@
+[
+  {
+    "viewport": "390x844",
+    "checks": [
+      "native quick swipe",
+      "invalid/outside drop cancels",
+      "valid drop single debit with duplicate card",
+      "touchcancel and Escape",
+      "tap and explicit info fallback",
+      "attack switches enemy field",
+      "targetless explicit zone",
+      "no overflow"
+    ],
+    "errors": []
+  },
+  {
+    "viewport": "320x568",
+    "checks": [
+      "native quick swipe",
+      "invalid/outside drop cancels",
+      "valid drop single debit with duplicate card",
+      "touchcancel and Escape",
+      "tap and explicit info fallback",
+      "attack switches enemy field",
+      "targetless explicit zone",
+      "no overflow"
+    ],
+    "errors": []
+  },
+  {
+    "viewport": "844x390",
+    "checks": [
+      "native quick swipe",
+      "invalid/outside drop cancels",
+      "valid drop single debit with duplicate card",
+      "touchcancel and Escape",
+      "tap and explicit info fallback",
+      "attack switches enemy field",
+      "targetless explicit zone",
+      "no overflow"
+    ],
+    "errors": []
+  },
+  {
+    "extra": [
+      "multitouch cancellation",
+      "viewport change cancellation",
+      "mouse drag",
+      "duplicate pointer release",
+      "keyboard Enter fallback",
+      "insufficient funds cannot drop"
+    ]
+  }
+]

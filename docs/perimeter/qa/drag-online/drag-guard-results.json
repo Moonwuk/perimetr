@@ -1,0 +1,9 @@
+{
+  "checks": [
+    "external selection clear cancels held card",
+    "touch valid drop after guard",
+    "immediate mouse drag after guard",
+    "zero AP drop rejected"
+  ],
+  "passed": true
+}

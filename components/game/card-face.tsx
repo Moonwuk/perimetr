@@ -19,7 +19,6 @@ type CardFaceProps = {
 export function CardFace({id, variant = 'full', unavailableLabel, decorative = false}: CardFaceProps) {
  const card = CARDS[id];
  const KindIcon = kindIcons[card.kind];
- const target = card.side === 'enemy' ? 'Сеть соперника' : card.side === 'own' ? 'Своя сеть' : 'Без выбора цели';
  return <span className={`card-face ${variant} ${card.kind}`} data-card-id={id} aria-hidden={decorative || undefined}>
   <img className="card-face-frame" src={frame} alt="" draggable={false}/>
   <span className="card-face-content">
@@ -33,7 +32,7 @@ export function CardFace({id, variant = 'full', unavailableLabel, decorative = f
     {unavailableLabel && <span className="card-face-status"><TriangleAlert aria-hidden="true"/><span>{unavailableLabel}</span></span>}
    </span>
    <span className="card-face-kind"><KindIcon aria-hidden="true"/><span>{labels[card.kind]}</span></span>
-   {variant === 'full' && <span className="card-face-rules"><strong>{card.short}</strong><span>{target}</span></span>}
+   {variant === 'full' && <span className="card-face-rules"><strong>{card.short}</strong></span>}
   </span>
  </span>;
 }

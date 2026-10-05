@@ -1,0 +1,22 @@
+[
+  {
+    "viewport": "320x568",
+    "checks": [
+      "one effect on card",
+      "long rules collapsed initially",
+      "Подробнее opens and closes rules",
+      "actions visible",
+      "close preserves selection"
+    ]
+  },
+  {
+    "viewport": "390x844",
+    "checks": [
+      "one effect on card",
+      "long rules collapsed initially",
+      "Подробнее opens and closes rules",
+      "actions visible",
+      "close preserves selection"
+    ]
+  }
+]
