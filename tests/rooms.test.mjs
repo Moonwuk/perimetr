@@ -6,9 +6,11 @@ import ts from 'typescript';
 const db=new DatabaseSync(':memory:');
 for(const file of (await readdir(new URL('../drizzle/',import.meta.url))).filter(f=>f.endsWith('.sql')).sort())db.exec(await readFile(new URL('../drizzle/'+file,import.meta.url),'utf8'));
 // Exercise the production route and SQL against a transactional SQLite-backed D1 adapter.
-const adapter={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){return db.prepare(sql).get(...args)??null;},async run(){const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};},async batch(statements){db.exec('BEGIN');try{const out=[];for(const s of statements)out.push(await s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
+const adapter={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){return db.prepare(sql).get(...args)??null;},run(){const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};},async batch(statements){db.exec('BEGIN');try{const out=[];for(const s of statements)out.push(s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
 globalThis.__contourRoomTestDb=adapter;
-const source=(await readFile(new URL('../app/api/rooms/route.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href));
+const metricsSource=(await readFile(new URL('../lib/server/metrics.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href));
+const metricsUrl='data:text/javascript;base64,'+Buffer.from(ts.transpileModule(metricsSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
+const source=(await readFile(new URL('../app/api/rooms/route.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href)).replace("'@/lib/server/metrics'",JSON.stringify(metricsUrl));
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {POST,GET,handleRoomPost}=await import('data:text/javascript;base64,'+Buffer.from(output).toString('base64'));
 const req=(b,token,origin='https://game.test')=>new Request('https://game.test/api/rooms',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(b)});
@@ -20,11 +22,11 @@ const move=(code,revision,action,token)=>post({intent:'action',code,revision,act
 
 test('public admission limiter cannot be bypassed with an Authorization header',async()=>{
  let checks=0;
- for(const body of [{intent:'create'},{intent:'join',code:'ABCDEFG'}]){
+ for(const body of [{intent:'create'},{intent:'join',code:'ABCDEFG'},{intent:'find'}]){
   const response=await handleRoomPost(req(body,'invented'),async()=>{checks++;return false;});
   assert.equal(response.status,429);assert.equal(response.headers.get('Retry-After'),'60');
  }
- assert.equal(checks,2);
+ assert.equal(checks,3);
 });
 
 test('request body is limited by bytes and rejects oversized streams without Content-Length',async()=>{
@@ -151,4 +153,113 @@ test('network rematch requires both votes, keeps seat authorization and alternat
  assert.equal((await move(h.code,3,{type:'rematch'},h.token)).status,400);
  const second=await move(h.code,3,{type:'rematch'},guest.token);assert.equal(second.status,200);assert.equal(second.data.game.status,'setup');assert.equal(second.data.game.firstPlayer,1);assert.equal(second.data.game.matchNumber,2);
  await move(h.code,4,hostSetup,h.token);const begun=await move(h.code,5,guestSetup,guest.token);assert.equal(begun.data.game.turn,1);assert.equal((await get(h.code,h.token)).data.game.viewer,0);assert.equal((await get(h.code,guest.token)).data.game.viewer,1);
+});
+
+const secret=()=>crypto.randomUUID()+crypto.randomUUID();
+const hidePublicRooms=()=>db.exec("UPDATE rooms SET visibility = 'private'");
+
+test('rooms are private by default and visibility is an explicit validated choice',async()=>{
+ hidePublicRooms();
+ const host=(await post({intent:'create',seatToken:secret()})).data;
+ assert.equal(host.visibility,'private');assert.equal((await get(host.code,host.token)).data.visibility,'private');
+ assert.equal((await post({intent:'find',seatToken:secret()})).status,404);
+ assert.equal((await post({intent:'create',visibility:'listed'})).status,400);
+ for(const b of [{intent:'find',seatToken:'short'},{intent:'find',excludeCode:'%invalid'},{intent:'find',excludeCode:7}])assert.equal((await post(b)).status,400);
+ assert.equal((await post({intent:'find'},undefined,'https://evil.test')).status,403);
+ assert.equal((await post({intent:'join',code:host.code})).status,200,'Private rooms still work by invitation code');
+});
+
+test('find only admits active, unoccupied, unexpired public waiting rooms and hides private data',async()=>{
+ hidePublicRooms();
+ const stale=(await post({intent:'create',visibility:'public'})).data;
+ db.prepare('UPDATE rooms SET host_seen_at = ? WHERE code = ?').run(Date.now()-61_000,stale.code);
+ const ended=(await post({intent:'create',visibility:'public'})).data;
+ await move(ended.code,0,{type:'surrender'},ended.token);
+ const full=(await post({intent:'create',visibility:'public'})).data;
+ await post({intent:'join',code:full.code});
+ const expired=(await post({intent:'create',visibility:'public'})).data;
+ db.prepare('UPDATE rooms SET expires_at = 0 WHERE code = ?').run(expired.code);
+ assert.equal((await post({intent:'find',seatToken:secret()})).status,404);
+ const available=(await post({intent:'create',name:'Available',visibility:'public'})).data;
+ const result=await post({intent:'find',name:'<Guest>',seatToken:secret()});assert.equal(result.status,200);
+ assert.equal(result.data.code,available.code);assert.equal(result.data.visibility,'public');assert.equal(result.data.game.viewer,1);
+ assert.equal(result.data.game.status,'setup');assert.equal(result.data.game.players[1].name,'Guest');
+ assert.deepEqual(result.data.game.players[0].layout,{});assert.deepEqual(result.data.game.players[0].hand,[]);
+ assert(!JSON.stringify(result.data).includes(available.token));assert(result.data.presence.every(x=>x>0));
+ assert.equal((await post({intent:'find',seatToken:secret()})).status,404);
+ await get(stale.code,stale.token);
+ const reactivated=await post({intent:'find',seatToken:secret()});assert.equal(reactivated.status,200);assert.equal(reactivated.data.code,stale.code);
+});
+
+test('find excludes the current room and cannot match its own host token',async()=>{
+ hidePublicRooms();
+ const host=(await post({intent:'create',visibility:'public',seatToken:secret()})).data;
+ assert.equal((await post({intent:'find',seatToken:host.token})).status,404);
+ assert.equal((await post({intent:'find',seatToken:secret(),excludeCode:host.code})).status,404);
+ assert.equal((await post({intent:'find',seatToken:secret()})).data.code,host.code);
+});
+
+test('concurrent find requests cannot occupy the same seat and retry another candidate',async()=>{
+ hidePublicRooms();
+ const host=(await post({intent:'create',visibility:'public'})).data;
+ const results=await Promise.all([post({intent:'find',seatToken:secret()}),post({intent:'find',seatToken:secret()})]);
+ assert.deepEqual(results.map(r=>r.status).sort(),[200,404]);
+ assert.equal(results.find(r=>r.status===200).data.code,host.code);
+ const second=(await post({intent:'create',visibility:'public'})).data;
+ const third=(await post({intent:'create',visibility:'public'})).data;
+ const retries=await Promise.all([post({intent:'find',seatToken:secret()}),post({intent:'find',seatToken:secret()})]);
+ assert(retries.every(r=>r.status===200));assert.deepEqual(retries.map(r=>r.data.code).sort(),[second.code,third.code].sort());
+});
+
+test('a lost find response recovers the same room even after play starts',async()=>{
+ hidePublicRooms();
+ const host=(await post({intent:'create',visibility:'public'})).data,seat=secret();
+ await move(host.code,0,hostSetup,host.token);
+ const first=await post({intent:'find',name:'Original guest',seatToken:seat});assert.equal(first.status,200);
+ await move(host.code,first.data.revision,guestSetup,seat);
+ const retry=await post({intent:'find',name:'Replacement',seatToken:seat});assert.equal(retry.status,200);
+ assert.equal(retry.data.code,host.code);assert.equal(retry.data.game.status,'playing');assert.equal(retry.data.game.players[1].name,'Original guest');assert.equal(retry.data.revision,3);
+});
+
+test('simultaneous find retries with the same token cannot claim different rooms',async()=>{
+ hidePublicRooms();
+ const one=(await post({intent:'create',visibility:'public'})).data,two=(await post({intent:'create',visibility:'public'})).data,seat=secret();
+ // Different exclusions force both in-flight calls to read different candidates.
+ const results=await Promise.all([post({intent:'find',seatToken:seat,excludeCode:one.code}),post({intent:'find',seatToken:seat,excludeCode:two.code})]);
+ assert(results.every(r=>r.status===200));assert.equal(results[0].data.code,results[1].data.code);
+ const remaining=await post({intent:'find',seatToken:secret()});assert.equal(remaining.status,200);assert.notEqual(remaining.data.code,results[0].data.code);
+});
+
+test('closing is host-only, deletes both seats and prevents actions, joins and recovery',async()=>{
+ hidePublicRooms();
+ const host=(await post({intent:'create',visibility:'public'})).data,guest=(await post({intent:'find',seatToken:secret()})).data;
+ for(const token of [undefined,'wrong',secret(),guest.token])assert.equal((await post({intent:'close',code:host.code},token)).status,403);
+ assert.equal((await post({intent:'close',code:host.code},host.token,'https://evil.test')).status,403);
+ assert.equal((await get(host.code,host.token)).status,200);
+ const closed=await post({intent:'close',code:host.code},host.token);assert.equal(closed.status,200);assert.deepEqual(closed.data,{closed:true,code:host.code});
+ assert.equal(db.prepare('SELECT code FROM rooms WHERE code = ?').get(host.code),undefined);
+ for(const token of [host.token,guest.token]){const r=await get(host.code,token);assert.equal(r.status,404);assert.match(r.data.error,/закрыта/);}
+ assert.equal((await move(host.code,1,hostSetup,host.token)).status,404);
+ assert.equal((await post({intent:'join',code:host.code,seatToken:guest.token})).status,404);
+ assert.equal((await post({intent:'find',seatToken:guest.token})).status,404);
+ assert.equal((await post({intent:'close',code:host.code},host.token)).status,404,'A lost close response is verified by a 404 poll');
+});
+
+test('a concurrent close and match cannot resurrect a deleted room',async()=>{
+ hidePublicRooms();
+ const host=(await post({intent:'create',visibility:'public'})).data;
+ const [closed,matched]=await Promise.all([post({intent:'close',code:host.code},host.token),post({intent:'find',seatToken:secret()})]);
+ assert.equal(closed.status,200);assert([200,404].includes(matched.status));
+ assert.equal((await get(host.code,host.token)).status,404);
+ if(matched.status===200)assert.equal((await get(host.code,matched.data.token)).status,404);
+});
+
+test('visibility migration keeps previously created rooms private',async()=>{
+ const legacy=new DatabaseSync(':memory:');
+ try{
+  for(const file of ['0000_brown_iron_lad.sql','0001_sturdy_green_goblin.sql'])legacy.exec(await readFile(new URL('../drizzle/'+file,import.meta.url),'utf8'));
+  legacy.prepare('INSERT INTO rooms (code,state,host_hash,revision,expires_at) VALUES (?,?,?,?,?)').run('ABCDEFG','{}','legacy-host',0,Date.now()+1000);
+  legacy.exec(await readFile(new URL('../drizzle/0002_bent_garia.sql',import.meta.url),'utf8'));
+  assert.equal(legacy.prepare('SELECT visibility FROM rooms WHERE code = ?').get('ABCDEFG').visibility,'private');
+ }finally{legacy.close();}
 });

@@ -1,7 +1,9 @@
 import {GET,handleRoomPost} from '../app/api/rooms/route';
+import {POST as ingestMetrics,handleMetricsExport} from '../app/api/metrics/route';
+import {cleanupMetrics} from '../lib/server/metrics';
 
 type Limiter={limit:(options:{key:string})=>Promise<{success:boolean}>};
-export type Env={DB:D1Database;ASSETS:Fetcher;API_LIMITER:Limiter;ADMISSION_LIMITER:Limiter};
+export type Env={DB:D1Database;ASSETS:Fetcher;API_LIMITER:Limiter;ADMISSION_LIMITER:Limiter;METRICS_EXPORT_TOKEN?:string};
 const apiJson=(body:unknown,status=200,extra:Record<string,string>={})=>Response.json(body,{status,headers:{
   'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',...extra,
 }});
@@ -19,6 +21,11 @@ const worker = {
     await env.DB.prepare('SELECT code FROM rooms LIMIT 1').first();
     return apiJson({ok:true,game:'perimeter',version:'0.5.0',storage:'ready'});
    }
+   if(url.pathname==='/api/metrics/export'||url.pathname==='/api/metrics'){
+    if(request.method==='GET')return handleMetricsExport(request,env.METRICS_EXPORT_TOKEN);
+    if(url.pathname==='/api/metrics'&&request.method==='POST')return ingestMetrics(request);
+    return apiJson({error:'Метод не поддерживается.'},405,{Allow:url.pathname==='/api/metrics'?'GET, POST':'GET'});
+   }
    if(url.pathname!=='/api/rooms')return apiJson({error:'Маршрут не найден.'},404);
    if(request.method==='GET')return GET(request);
    if(request.method==='POST')return handleRoomPost(request,async()=>{
@@ -32,6 +39,7 @@ const worker = {
  },
  async scheduled(_event:ScheduledController,env:Env):Promise<void>{
   await env.DB.prepare('DELETE FROM rooms WHERE expires_at <= ?').bind(Date.now()).run();
+  await cleanupMetrics(env.DB);
  },
 };
 

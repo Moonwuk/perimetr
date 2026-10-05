@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "checks": [
+    "private default and search exclusion",
+    "close cancel preserves room",
+    "host closes waitingroom",
+    "public automatic matchmaking",
+    "two ready confirmations start bothclients",
+    "online touchdrop single charge",
+    "clientdrag metric reachesD1",
+    "guest cannot close UI",
+    "host closes both clients and clearsseats",
+    "owner export requireskey",
+    "actualJSONdownload server/client events",
+    "no roomcodes/keys/names/private layouts inexport",
+    "ownerkey notpersisted"
+  ],
+  "matches": 2,
+  "events": 9,
+  "pageErrors": []
+}

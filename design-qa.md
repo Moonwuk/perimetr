@@ -81,3 +81,25 @@ Online preparation now exposes the ready action before the customizable board an
 - Lint, TypeScript and both web and Android web-asset builds pass; git diff whitespace check passes.
 
 Production room and physical-device behavior are not established by these local checks. No signed APK, server rules, balancing changes or protocol changes are included in this follow-up.
+
+## Follow-up: drag cards, public rooms and central metrics
+
+This follow-up adds a second play gesture: hold a hand card for 280 ms, drag it onto a legal target, and release to submit the action. Mouse movement can start dragging immediately. A quick touch swipe still scrolls the hand. The floating card stays above the finger while a ring marks the actual hit point. Targetless cards use the labelled own-company panel. Releasing elsewhere cancels without spending resources. A short tap still selects directly and the explicit play/inspect controls remain available.
+
+Card faces now carry one short effect. Full rules and the teaching note are collapsed behind “Подробнее”. On a short phone, the inspection card is sized to keep that control and both action buttons visible initially; the redundant generic target instruction was removed. Specific rejection reasons and selected-target forecasts remain available.
+
+The online dialog provides automatic matching, creation and code admission. Creation defaults to private; public rooms enter search only while waiting for a guest and the host has been seen recently. Both players still explicitly confirm setup. The host can confirm “Закрыть комнату”; both seats return to the lobby and their saved online credentials are cleared. Returning to the menu alone preserves the room.
+
+Online metrics are written to D1 by the Worker, with separate authenticated client drag diagnostics. The owner can open `/?reports=1` and download JSON using a Worker secret. See [setup and data contract](docs/METRICS.md). This is central collection, not an export of device-local metrics.
+
+### Evidence and checks
+
+- Actual Chromium touch events at 320 × 568, 390 × 844 and 844 × 390: hold and play, duplicate cards with one debit, enemy targeting, invalid/outside drops, targetless own-panel play, swipe-to-scroll, touch cancel, multi-touch and resize cancellation. Mouse drag and keyboard fallback also passed. [Drag report](docs/perimeter/qa/drag-online/drag-results.json), [guard checks](docs/perimeter/qa/drag-online/drag-guard-results.json), [320px drag](docs/perimeter/qa/drag-online/drag-320.png).
+- Focused card inspection at 320 × 568 and 390 × 844: short effect only, details collapsed, open/close details, visible actions, closing preserves selection. “Подробнее” is initially above the action bar; its bottom is y=450.63/723.91 and the action bar starts at y=465.63/738.91 respectively. [Report](docs/perimeter/qa/drag-online/simple-card-results.json), [320px inspection](docs/perimeter/qa/drag-online/simple-card-320.png).
+- Real local Worker + D1 and two independent browser contexts: private rooms excluded from search; close cancellation preserves the room; public search joins automatically; both ready confirmations start play; touch drop spends exactly 240 credits and 1 action; its server action and client gesture reach D1; a guest has no close control; host close returns both clients to the lobby. [Report](docs/perimeter/qa/drag-online/rooms-metrics-results.json).
+- Actual owner JSON download: wrong/missing key rejected; successful export includes two abandoned matches, authoritative action cost and client gesture. Export contains no original room codes, keys, names or hidden layouts. Owner key is not persisted across reload. [Owner export screenshot](docs/perimeter/qa/drag-online/server-report-owner.png).
+- An initial short-phone room screenshot exposed a partly clipped creation button. The room dialog now uses tighter spacing at short heights; a focused 320 × 568 check verifies the entire create button is initially visible and there is no horizontal overflow. [Updated room screenshot](docs/perimeter/qa/drag-online/create-public-320.png).
+- 77 automated engine/save/room/metrics tests pass. Meaningful server regressions cover concurrent admission, close after a concurrent move, failed metric writes after successful play, fraud gross cost versus net balance, retention, and the D1 limit when exporting 100 matches.
+- The Cloudflare smoke passed against real local Worker + D1, including `DELETE … RETURNING`, JSON-based export filtering, owner authorization, ingest, migration and cleanup. Lint, TypeScript, web and Android web-asset builds passed. Screenshots above were opened and inspected.
+
+No game balance constants changed. Tests use a local Worker and emulated Chromium viewports; they do not establish production deployment, physical-phone performance or a new signed APK. The owner must set `METRICS_EXPORT_TOKEN` to enable report downloads after deployment. Collection itself does not require that export key.
