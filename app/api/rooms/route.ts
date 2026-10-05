@@ -1,3 +1,4 @@
+import { isAllowedApiOrigin } from '@/lib/server/api-origin';
 import { roomDb } from '@/db/rooms';
 import { recordRoomMetric, recordActionMetric, recordErrorMetric } from '@/lib/server/metrics';
 import { newGame, applyAction, viewGame, upgradeGame, type Game, type Action } from '@/lib/game/engine';
@@ -15,12 +16,13 @@ async function readRoom(code:string){if(!codePattern.test(code))return null;retu
 async function actorFor(request:Request,row:Row){const raw=request.headers.get('authorization')?.replace(/^Bearer /,'')??'';if(raw.length<50||raw.length>100)return -1;const h=await hash(raw);return h===row.host_hash?0:h===row.guest_hash?1:-1;}
 function payload(row:Row,g:Game,actor:number){return {code:row.code,visibility:row.visibility,revision:row.revision,game:viewGame(g,actor),expiresAt:row.expires_at,serverTime:Date.now(),presence:[row.host_seen_at,row.guest_seen_at]};}
 export async function GET(request:Request){
+ if(!isAllowedApiOrigin(request))return json({error:'Недопустимый источник запроса.'},403);
  try{const code=new URL(request.url).searchParams.get('code')??'';const row=await readRoom(code);if(!row)return json({error:roomMissing},404);const actor=await actorFor(request,row);if(actor<0)return json({error:'Нет доступа к этому месту игрока.'},403);const field=actor===0?'host_seen_at':'guest_seen_at';const now=Date.now();if(now-row[field]>=15000){await roomDb().prepare(`UPDATE rooms SET ${field} = ? WHERE code = ? AND ${field} <= ?`).bind(now,row.code,now-15000).run();row[field]=now;}return json(payload(row,upgradeGame(JSON.parse(row.state)),actor));}
  catch(e){console.error('room read failed',e instanceof Error?e.message:'unknown');return json({error:'Не удалось связаться с комнатой. Попробуйте ещё раз.'},503);}
 }
 export async function handleRoomPost(request:Request,admissionLimit?:()=>Promise<boolean>){
  try{
-  const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return json({error:'Недопустимый источник запроса.'},403);
+  if(!isAllowedApiOrigin(request))return json({error:'Недопустимый источник запроса.'},403);
   if(Number(request.headers.get('content-length')??0)>4096)return json({error:'Слишком большой запрос.'},413);
   let raw:string|null;try{raw=await readBoundedBody(request);}catch{return json({error:'Некорректная кодировка запроса.'},400);}
   if(raw===null)return json({error:'Слишком большой запрос.'},413);

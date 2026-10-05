@@ -8,9 +8,9 @@ for(const file of (await readdir(new URL('../drizzle/',import.meta.url))).filter
 // Exercise the production route and SQL against a transactional SQLite-backed D1 adapter.
 const adapter={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){return db.prepare(sql).get(...args)??null;},run(){const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};},async batch(statements){db.exec('BEGIN');try{const out=[];for(const s of statements)out.push(s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
 globalThis.__contourRoomTestDb=adapter;
-const metricsSource=(await readFile(new URL('../lib/server/metrics.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href));
+const metricsSource=(await readFile(new URL('../lib/server/metrics.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href)).replace("'@/lib/server/api-origin'",JSON.stringify(new URL('../lib/server/api-origin.ts',import.meta.url).href));
 const metricsUrl='data:text/javascript;base64,'+Buffer.from(ts.transpileModule(metricsSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
-const source=(await readFile(new URL('../app/api/rooms/route.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href)).replace("'@/lib/server/metrics'",JSON.stringify(metricsUrl));
+const source=(await readFile(new URL('../app/api/rooms/route.ts',import.meta.url),'utf8')).replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourRoomTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href)).replace("'@/lib/server/api-origin'",JSON.stringify(new URL('../lib/server/api-origin.ts',import.meta.url).href)).replace("'@/lib/server/metrics'",JSON.stringify(metricsUrl));
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {POST,GET,handleRoomPost}=await import('data:text/javascript;base64,'+Buffer.from(output).toString('base64'));
 const req=(b,token,origin='https://game.test')=>new Request('https://game.test/api/rooms',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(b)});
@@ -262,4 +262,16 @@ test('visibility migration keeps previously created rooms private',async()=>{
   legacy.exec(await readFile(new URL('../drizzle/0002_bent_garia.sql',import.meta.url),'utf8'));
   assert.equal(legacy.prepare('SELECT visibility FROM rooms WHERE code = ?').get('ABCDEFG').visibility,'private');
  }finally{legacy.close();}
+});
+
+
+test('Android app origin can use the same room seats but foreign origins and missing tokens cannot',async()=>{
+ const origin='https://appassets.androidplatform.net';
+ const host=await post({intent:'create'},undefined,origin);assert.equal(host.status,201);
+ const read=async(origin,token)=>GET(new Request(`https://game.test/api/rooms?code=${host.data.code}`,{headers:{Origin:origin,...(token?{Authorization:`Bearer ${token}`}:{})}}));
+ assert.equal((await read(origin,host.data.token)).status,200);assert.equal((await read(origin,'wrong')).status,403);
+ assert.equal((await read('https://evil.test',host.data.token)).status,403);
+ const confirmed=await post({intent:'action',code:host.data.code,revision:0,action:hostSetup},host.data.token,origin);assert.equal(confirmed.status,200);
+ assert.equal((await post({intent:'close',code:host.data.code},'wrong',origin)).status,403);
+ assert.equal((await post({intent:'close',code:host.data.code},host.data.token,origin)).status,200);
 });

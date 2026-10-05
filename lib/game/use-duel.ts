@@ -19,7 +19,7 @@ function readSavedSession():Session|null {
 async function fetchRoom<T=RoomData>(url:string,options:RequestInit={}){
  if(!ONLINE_ENABLED)throw new Error('Сетевые дуэли появятся после запуска сервера. Сейчас доступны бот и игра на одном устройстве.');
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
- try{const response=await fetch(ONLINE_ORIGIN+url,{...options,signal:controller.signal,cache:'no-store'});const data=await response.json() as T;return {response,data};}finally{clearTimeout(timeout);}
+ try{const response=await fetch(ONLINE_ORIGIN+url,{...options,signal:controller.signal,cache:'no-store',credentials:'omit',redirect:'error'});const data=await response.json() as T;return {response,data};}finally{clearTimeout(timeout);}
 }
 export function useDuel(){
  const [game,setGameState]=useState<Game|null>(null),[remote,setRemote]=useState<RoomData|null>(null),[session,setSession]=useState<Session|null>(null),[resume,setResume]=useState<Session|null>(readSavedSession);

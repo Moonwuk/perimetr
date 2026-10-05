@@ -14,6 +14,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -26,4 +30,24 @@ jobs:
       - run: pnpm exec tsc --noEmit --incremental false
       - run: pnpm cf:check
       - run: pnpm cf:test
+      - run: pnpm vps:build
+      - run: pnpm vps:test
+      - run: node scripts/vps-package.mjs
+      - name: Verify VPS containers and backups
+        run: |
+          cd server/releases/perimeter-server-0.5.0
+          sh deploy/setup.sh --local
+          trap 'sh deploy/manage.sh --local stop' EXIT
+          sh deploy/manage.sh --local start
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/api/health; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+          sh deploy/manage.sh --local health
+          sh deploy/manage.sh --local backup
+          sh deploy/manage.sh --local snapshots
+          sh deploy/manage.sh --local metrics metrics.json
+          test -s metrics.json
       - run: pnpm android:web

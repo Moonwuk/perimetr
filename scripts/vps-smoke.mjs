@@ -1,23 +1,36 @@
 import assert from 'node:assert/strict';
-import {spawn,spawnSync} from 'node:child_process';
+import {spawn} from 'node:child_process';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
-import {MAX_ROUNDS,MONEY_GOAL} from '../../lib/game/engine.ts';
+import {MAX_ROUNDS,MONEY_GOAL} from '../lib/game/engine.ts';
 
-const root=fileURLToPath(new URL('../../',import.meta.url));
-const wrangler=fileURLToPath(new URL('../../node_modules/wrangler/bin/wrangler.js',import.meta.url));
-const state=await mkdtemp(join(tmpdir(),'perimeter-cf-test-'));
-const common=['--config','cloudflare/wrangler.json','--local','--persist-to',state];
-const migration=spawnSync(process.execPath,[wrangler,'d1','migrations','apply','perimeter-rooms',...common],{cwd:root,encoding:'utf8',timeout:60000});
-if(migration.status!==0){console.error(migration.stdout,migration.stderr);await rm(state,{recursive:true,force:true});process.exit(1);}
+const root=fileURLToPath(new URL('../',import.meta.url));
+const state=await mkdtemp(join(tmpdir(),'perimeter-vps-test-'));
 const port=await new Promise((resolve,reject)=>{const s=createServer();s.on('error',reject);s.listen(0,'127.0.0.1',()=>{const port=s.address().port;s.close(()=>resolve(port));});});
-const metricsKey='local-smoke-'+crypto.randomUUID();
-const server=spawn(process.execPath,[wrangler,'dev',...common,'--ip','127.0.0.1','--port',String(port),'--inspector-port','0','--test-scheduled','--var',`METRICS_EXPORT_TOKEN:${metricsKey}`],{cwd:root,stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'});
-let logs='';for(const stream of [server.stdout,server.stderr])stream.on('data',b=>{logs=(logs+b.toString()).slice(-20000);});
 const base=`http://127.0.0.1:${port}`;
+const metricsKey='local-smoke-'+crypto.randomUUID();
+let logs='',server;
+function launch(){
+ server=spawn(process.execPath,[process.env.VPS_SERVER_BUNDLE||'server/dist/server.mjs'],{cwd:root,env:{...process.env,NODE_ENV:'test',PUBLIC_ORIGIN:base,HOST:'127.0.0.1',PORT:String(port),DATABASE_PATH:join(state,'perimeter.sqlite'),METRICS_EXPORT_TOKEN:metricsKey,TRUST_PROXY:'0'},stdio:['ignore','pipe','pipe']});
+ for(const stream of [server.stdout,server.stderr])stream.on('data',b=>{logs=(logs+b.toString()).slice(-20000);});
+}
+async function stop(){
+ if(!server||server.exitCode!==null)return;
+ const child=server;
+ await new Promise((resolve,reject)=>{const deadline=setTimeout(()=>{child.kill('SIGKILL');reject(new Error('Server did not stop gracefully'));},5000);child.once('exit',code=>{clearTimeout(deadline);if(code!==0)reject(new Error('Unclean server exit '+code));else resolve();});child.kill('SIGTERM');});
+}
+async function ready(){
+ for(let i=0;i<80;i++){
+  if(server.exitCode!==null)throw Error('VPS server exited: '+logs);
+  try{const r=await fetch(base+'/api/health');if(r.ok)return;}catch{}
+  await new Promise(resolve=>setTimeout(resolve,100));
+ }
+ throw Error('VPS server failed to start: '+logs);
+}
+launch();
 const appOrigin='https://appassets.androidplatform.net';
 const headers=token=>({'Content-Type':'application/json',Origin:base,...(token?{Authorization:`Bearer ${token}`}:{})});
 const post=async(body,token,origin=base)=>{const response=await fetch(base+'/api/rooms',{method:'POST',headers:{...headers(token),Origin:origin},body:JSON.stringify(body)});return {status:response.status,data:await response.json(),headers:response.headers};};
@@ -25,13 +38,7 @@ const get=async(code,token)=>{const response=await fetch(base+'/api/rooms?code='
 const move=(code,revision,action,token)=>post({intent:'action',code,revision,action},token);
 const secret=()=>crypto.randomUUID()+crypto.randomUUID();
 try{
- let ready=false;
- for(let i=0;i<100;i++){
-  if(server.exitCode!==null)throw Error('Wrangler exited: '+logs);
-  try{const r=await fetch(base+'/api/health');if(r.ok){ready=true;break;}}catch{}
-  await new Promise(resolve=>setTimeout(resolve,300));
- }
- assert(ready,'Worker failed to start: '+logs);
+ await ready();
  const homepage=await fetch(base+'/');assert.equal(homepage.status,200);const html=await homepage.text();assert(html.includes('КОНТУР'));
  assert(homepage.headers.get('content-security-policy')?.includes("connect-src 'self'"));
  for(const path of [...html.matchAll(/(?:src|href)="(\/assets\/[^\"]+)"/g)].map(m=>m[1]))assert.equal((await fetch(base+path)).status,200);
@@ -61,6 +68,7 @@ try{
  result=await move(host.code,3,{type:'card',card:'recon',cell:12,side:'enemy'},host.token);assert.equal(result.status,200);
  const duplicate=await Promise.all([move(host.code,4,{type:'card',card:'ddos',node:'web',side:'enemy'},host.token),move(host.code,4,{type:'card',card:'ddos',node:'web',side:'enemy'},host.token)]);
  assert.deepEqual(duplicate.map(r=>r.status).sort(),[200,409]);
+ await stop();launch();await ready(); // Reopen the same SQLite file with existing seats and match state.
  const recovered=await get(host.code,host.token);assert.equal(recovered.data.revision,5);assert.equal(recovered.data.game.players[0].money,240);assert.equal(recovered.headers.get('cache-control'),'no-store');
  assert.equal((await get(host.code,guest.token)).data.game.players[1].nodes.web.offline,true);
  result=await move(host.code,5,{type:'end'},host.token);assert.equal(result.status,200);
@@ -109,11 +117,13 @@ try{
  let rateLimited=false;
  for(let i=0;i<15;i++){const r=await post({intent:'create',seatToken:secret()},'spoofed-authorization');if(r.status===429){rateLimited=true;assert.equal(r.headers.get('retry-after'),'60');break;}assert.equal(r.status,201);}
  assert(rateLimited,'Admission rate limiter did not engage');
- const cleanup=await fetch(base+'/__scheduled?cron=17+*+*+*+*');assert(cleanup.ok,'Scheduled cleanup failed');
- console.log('PASS: Worker + real local D1; two independent HTTP clients; assets/CSP; exact Android CORS/preflight/errors; idempotent create/join/find; private room isolation; open-room matching; host-only closure; authenticated central metrics; private-data-free owner export; immediate presence; invalid setup/out-of-turn/replayed/finished actions; private hand/layout/reserve; concurrent attack/CAS; reconnect; persistent reserve; surrender; two-vote rematch with switched first player; complete financial finish; origin check; admission limiter; scheduled handler.');
+ await stop();launch();await ready();
+ const restoredMetrics=await exportMetrics(metricsKey);assert.equal(restoredMetrics.status,200);assert(restoredMetrics.data.events.some(event=>event.action==='card'&&event.card==='ddos'));
+ assert.equal((await get(host.code,host.token)).data.game.status,'finished','Finished matches survive restart');
+ assert.equal((await get(openHost.code,openHost.token)).status,404,'Closed rooms stay closed after restart');
+ console.log('PASS: Node VPS + persistent SQLite; graceful restart mid-match and after finish; two independent HTTP clients; assets/CSP; exact Android CORS/preflight/errors; idempotent create/join/find; private room isolation; open-room matching; host-only closure; authenticated central metrics; private-data-free owner export; immediate presence; invalid setup/out-of-turn/replayed/finished actions; private hand/layout/reserve; concurrent attack/CAS; reconnect; persistent reserve; surrender; two-vote rematch with switched first player; complete financial finish; origin check; admission limiter; metrics persist across restart.');
 }catch(error){console.error(logs);throw error;}
 finally{
- if(server.exitCode===null){try{if(process.platform==='win32')server.kill('SIGTERM');else process.kill(-server.pid,'SIGTERM');}catch{}}
- await new Promise(resolve=>{if(server.exitCode!==null)return resolve();server.once('exit',resolve);setTimeout(resolve,2000).unref();});
+ await stop();
  await rm(state,{recursive:true,force:true});
 }

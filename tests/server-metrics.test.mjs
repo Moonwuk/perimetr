@@ -11,7 +11,7 @@ let maxBindings=0;
 const adapter={prepare(sql){if(failMetrics&&sql.includes('metrics_'))throw Error('Simulated metrics outage');let args=[];return {bind(...v){assert(v.length<=100,'D1 supports at most 100 bound parameters per query');maxBindings=Math.max(maxBindings,v.length);args=v;return this;},async first(){if(sql.startsWith('DELETE FROM rooms')&&beforeDelete){const hook=beforeDelete;beforeDelete=undefined;hook();}return db.prepare(sql).get(...args)??null;},async all(){return {results:db.prepare(sql).all(...args)};},run(){const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};},async batch(statements){db.exec('BEGIN');try{const out=statements.map(s=>s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
 globalThis.__contourMetricsTestDb=adapter;
 const compile=source=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
-const transform=source=>source.replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourMetricsTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href));
+const transform=source=>source.replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourMetricsTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href)).replace("'@/lib/server/api-origin'",JSON.stringify(new URL('../lib/server/api-origin.ts',import.meta.url).href));
 const libUrl=compile(transform(await readFile(new URL('../lib/server/metrics.ts',import.meta.url),'utf8')));
 const {cleanupMetrics}=await import(libUrl);
 const routes=await import(compile(transform(await readFile(new URL('../app/api/rooms/route.ts',import.meta.url),'utf8')).replace("'@/lib/server/metrics'",JSON.stringify(libUrl))));
@@ -42,6 +42,14 @@ test('client diagnostics authenticate the seat and only accept a small closed ev
  assert.equal((await ingest({code:tracked.code,events:[{...event,detail:'x'.repeat(4200)}]},tracked.token)).status,413);
  const accepted=await ingest({code:tracked.code,events:[event]},tracked.token);assert.equal(accepted.status,202);assert.equal(accepted.data.accepted,1);
  const row=db.prepare("SELECT * FROM metrics_events WHERE type = 'card_drag'").get();assert.equal(row.source,'client');assert.deepEqual(JSON.parse(row.data),{card:'ddos',outcome:'cancelled',durationMs:350});
+});
+test('Android diagnostics require the room seat and Android cannot access owner export',async()=>{
+ const origin='https://appassets.androidplatform.net',body={code:tracked.code,events:[{type:'card_drag',card:'recon',outcome:'invalid'}]};
+ assert.equal((await ingest(body,tracked.token,origin)).status,202);assert.equal((await ingest(body,'wrong',origin)).status,403);
+ const exportRequest=source=>new Request('https://game.test/api/metrics/export',{headers:{Origin:source,Authorization:`Bearer ${ownerKey}`}});
+ assert.equal((await metrics.handleMetricsExport(exportRequest(origin),ownerKey)).status,403);
+ assert.equal((await metrics.handleMetricsExport(exportRequest('https://evil.test'),ownerKey)).status,403);
+ assert.equal((await metrics.handleMetricsExport(exportRequest('https://game.test'),ownerKey)).status,200);
 });
 test('authoritative card action is recorded once after CAS, errors separately, snapshots omit private data',async()=>{
  const guest=(await post({intent:'join',code:tracked.code,name:'SECRET GUEST NAME'})).data;

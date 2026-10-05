@@ -1,0 +1,112 @@
+name: perimeter
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "3"
+
+x-app: &app
+  image: perimeter-server:local
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  logging: *logging
+
+services:
+  data-init:
+    image: node:24-bookworm-slim
+    user: "0:0"
+    network_mode: none
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    command: [sh, -c, "chown 1000:1000 /data /backups && chmod 700 /data /backups"]
+    volumes:
+      - game-data:/data
+      - game-backups:/backups
+    restart: "no"
+    logging: *logging
+
+  app:
+    <<: *app
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PUBLIC_ORIGIN: https://${DOMAIN:?Run deploy/setup.sh first}
+      HOST: 0.0.0.0
+      PORT: "8080"
+      DATABASE_PATH: /data/perimeter.sqlite
+      STATIC_DIR: /app/public
+      MIGRATIONS_DIR: /app/drizzle
+      METRICS_EXPORT_TOKEN: ${METRICS_EXPORT_TOKEN:?Run deploy/setup.sh first}
+      TRUST_PROXY: "1"
+      API_REQUESTS_PER_MINUTE: ${API_REQUESTS_PER_MINUTE:-600}
+      ROOM_ADMISSIONS_PER_MINUTE: ${ROOM_ADMISSIONS_PER_MINUTE:-12}
+    volumes:
+      - game-data:/data
+      - game-backups:/backups
+    networks: [backend]
+    mem_limit: 512m
+    stop_grace_period: 20s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:?Run deploy/setup.sh first}
+      ACME_EMAIL: ${ACME_EMAIL:?Run deploy/setup.sh first}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge, backend]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 160m
+    pids_limit: 128
+    logging: *logging
+
+  backups:
+    <<: *app
+    depends_on:
+      app:
+        condition: service_healthy
+    command: [node, /app/deploy/backup.mjs, loop]
+    environment:
+      DATABASE_PATH: /data/perimeter.sqlite
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-6}
+      BACKUP_KEEP: ${BACKUP_KEEP:-28}
+    volumes:
+      - game-data:/data
+      - game-backups:/backups
+    network_mode: none
+    healthcheck:
+      disable: true
+    mem_limit: 96m
+    stop_grace_period: 20s
+
+volumes:
+  game-data:
+  game-backups:
+  caddy-data:
+  caddy-config:
+
+networks:
+  edge:
+  backend:
+    internal: true

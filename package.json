@@ -22,7 +22,11 @@
     "cf:configure": "node cloudflare/scripts/configure.mjs",
     "cf:deploy": "node cloudflare/scripts/deploy.mjs",
     "cf:check": "pnpm cf:build && wrangler deploy --dry-run --config cloudflare/wrangler.json",
-    "cf:test": "node --experimental-strip-types cloudflare/scripts/smoke.mjs"
+    "cf:test": "node --experimental-strip-types cloudflare/scripts/smoke.mjs",
+    "vps:build": "node scripts/vps-build.mjs",
+    "vps:start": "node server/dist/server.mjs",
+    "vps:test": "node --experimental-strip-types scripts/vps-smoke.mjs",
+    "vps:package": "pnpm vps:build && node scripts/vps-package.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

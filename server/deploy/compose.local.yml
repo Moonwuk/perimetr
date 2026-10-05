@@ -1,0 +1,9 @@
+# Use only with an SSH tunnel; the HTTP port is not exposed to the Internet.
+services:
+  app:
+    environment:
+      NODE_ENV: development
+      PUBLIC_ORIGIN: http://127.0.0.1:8080
+      TRUST_PROXY: "0"
+    ports:
+      - "127.0.0.1:8080:8080"

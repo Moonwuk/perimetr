@@ -64,3 +64,13 @@ cloudflare/test-output/
 
 # Metadata of the original private Sites deployment is not part of this repository.
 .openai/hosting.json
+
+# VPS output and private runtime state
+server/dist/
+server/releases/
+server/data/
+server/deploy/backups/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+!server/deploy/.env.example
