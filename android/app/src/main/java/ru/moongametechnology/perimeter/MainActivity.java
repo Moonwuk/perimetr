@@ -36,7 +36,7 @@ import ru.rustore.sdk.appupdate.model.InstallStatus;
 import ru.rustore.sdk.appupdate.model.UpdateAvailability;
 import ru.rustore.sdk.appupdate.listener.InstallStateUpdateListener;
 
-/** Local, bundled game. No arbitrary URL or privileged JavaScript interface. */
+/** Bundled game with a narrow optional multiplayer API. No remote scripts or privileged JS interface. */
 public final class MainActivity extends ComponentActivity {
     private static final String ORIGIN = "https://appassets.androidplatform.net";
     private WebView web;
@@ -82,7 +82,9 @@ public final class MainActivity extends ComponentActivity {
                     WebResourceResponse response = assets.shouldInterceptRequest(request.getUrl());
                     return response != null ? response : missing();
                 }
-                // The first store build is offline. Do not load remote scripts or page content.
+                if (NetworkPolicy.allows(BuildConfig.ONLINE_ORIGIN, request.getUrl().toString(), request.getMethod(), request.isForMainFrame())) {
+                    return null; // WebView performs normal HTTPS and CORS checks.
+                }
                 return missing();
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {

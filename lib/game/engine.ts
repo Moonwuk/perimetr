@@ -57,7 +57,8 @@ export type Player = {reserve:Countermeasure|null;reserveRound:number;name:strin
 export type LogEntry = {id:number;round:number;text:string;audience:number|'all';tone:'normal'|'attack'|'defense'|'score'};
 export type MatchStats={spent:number;attacks:number;defenses:number;economy:number;blocked:number;stolen:number;cashLost:number};
 const emptyStats=():MatchStats=>({spent:0,attacks:0,defenses:0,economy:0,blocked:0,stolen:0,cashLost:0});
-export type Game = {version:5;firstPlayer:number;matchNumber:number;rematchVotes:number[];stats:[MatchStats,MatchStats];mode:Mode;players:[Player,Player];turn:number;round:number;ap:number;status:'waiting'|'setup'|'playing'|'finished';winner:number|null;logs:LogEntry[];serial:number;rng:number};
+export type Game = {version:5;firstPlayer:number;matchNumber:number;rematchVotes:number[];stats:[MatchStats,MatchStats];mode:Mode;players:[Player,Player];turn:number;round:number;ap:number;status:'waiting'|'setup'|'playing'|'finished';winner:number|null;startedAt?:number;resumedAt?:number;pause?:{requestedBy:0|1;pausedAt:number|null};finishReason?:'surrender'|'disconnect'|'score';logs:LogEntry[];serial:number;rng:number};
+export type PauseDecision='request'|'accept'|'decline'|'cancel'|'resume';
 export type Deployment = {layout:number[];shields:number[];sensors:number[];auth?:number[];backups?:number[]};
 export type Action = {type:'card';card:CardId;node?:NodeId;cell?:number;side?:Side}|{type:'scan';cell:number;side:'enemy'}|{type:'investigate'|'isolate'|'restore'|'cleanse';node:NodeId;side:Side}|{type:'deploy';deployment:Deployment}|{type:'exchange';card:CardId;kind:CardKind}|{type:'draw'}|{type:'end'}|{type:'surrender'}|{type:'reserve';counter:Countermeasure}|{type:'rematch'};
 export type PlayerView = Omit<Player,'hand'|'deck'|'discard'|'nodes'|'layout'|'reserve'> & {reserve:Countermeasure|'hidden'|null;nodes:Record<NodeId,NodeState|null>;layout:Partial<Record<NodeId,number>>;hand:CardId[];handCount:number;deckCount:number;discardCount:number;exchangeOptions:Partial<Record<CardId,CardKind[]>>};
@@ -152,7 +153,7 @@ export function viewGame(g:Game,viewer:number):View{
  if(viewer!==0&&viewer!==1)throw new Error('Неизвестный игрок.');
  const me=g.players[viewer];
  const players=g.players.map((p,i):PlayerView=>({name:p.name,reserve:i===viewer||g.status==='finished'?p.reserve:p.reserve?'hidden':null,reserveRound:p.reserveRound,money:p.money,earned:p.earned,ready:p.ready,exchangeRound:i===viewer?p.exchangeRound??0:0,exchangeOptions:i===viewer?exchangeOptions(p):{},interrupted:p.interrupted,score:p.score,uptime:p.uptime,objectives:[...p.objectives],hand:i===viewer?[...p.hand]:[],handCount:p.hand.length,deckCount:p.deck.length,discardCount:p.discard.length,intel:i===viewer?[...p.intel]:[],scanned:i===viewer?[...p.scanned]:[],quiet:i===viewer?p.quiet:false,layout:Object.fromEntries(ids.filter(id=>p.nodes[id].built&&(i===viewer||me.scanned.includes(p.layout[id]))).map(id=>[id,p.layout[id]])),nodes:Object.fromEntries(ids.map(id=>{if(!p.nodes[id].built||i!==viewer&&!me.scanned.includes(p.layout[id]))return[id,null];const n={...p.nodes[id]};if(i===viewer&&!n.detected)n.access=0;if(i!==viewer)n.detected=false;return[id,n];})) as PlayerView['nodes']})) as [PlayerView,PlayerView];
- return {version:5,firstPlayer:g.firstPlayer,matchNumber:g.matchNumber,rematchVotes:[...g.rematchVotes],...(g.status==='finished'?{stats:structuredClone(g.stats)}:{}),mode:g.mode,turn:g.turn,round:g.round,ap:g.ap,status:g.status,winner:g.winner,logs:g.logs.filter(l=>l.audience==='all'||l.audience===viewer),serial:g.serial,players,viewer};
+ return {version:5,firstPlayer:g.firstPlayer,matchNumber:g.matchNumber,rematchVotes:[...g.rematchVotes],...(g.status==='finished'?{stats:structuredClone(g.stats)}:{}),mode:g.mode,turn:g.turn,round:g.round,ap:g.ap,status:g.status,winner:g.winner,...(g.startedAt?{startedAt:g.startedAt}:{}),...(g.resumedAt?{resumedAt:g.resumedAt}:{}),...(g.pause?{pause:{...g.pause}}:{}),...(g.finishReason?{finishReason:g.finishReason}:{}),logs:g.logs.filter(l=>l.audience==='all'||l.audience===viewer),serial:g.serial,players,viewer};
 }
 export function actionStatus(v:View,a:Action):ActionStatus{
  let cost=1;const fail=(reason:string):ActionStatus=>({ok:false,cost,reason,preview:''});const ok=(preview:string):ActionStatus=>({ok:true,cost,reason:'',preview});
@@ -160,6 +161,7 @@ export function actionStatus(v:View,a:Action):ActionStatus{
  const p=v.players[v.viewer],e=v.players[1-v.viewer];
  if(a.type==='rematch'){cost=0;return v.status!=='finished'?fail('Реванш доступен после матча.'):v.rematchVotes.includes(v.viewer)?fail('Вы уже готовы к реваншу.'):ok('Начать реванш, когда оба игрока согласятся. Первым ходит другой игрок.');}
  if(a.type==='surrender'){cost=0;return v.status==='playing'||v.status==='setup'||v.status==='waiting'?ok('Завершить матч в пользу соперника.'):fail('Матч завершён.');}
+ if(v.pause?.pausedAt!=null)return fail('Матч на паузе. Сначала продолжите игру.');
  if(a.type==='deploy'){cost=0;if(!['waiting','setup'].includes(v.status)||p.ready)return fail('Расстановка уже подтверждена.');const error=deploymentError(a.deployment);return error?fail(error):ok('Подтвердить расстановку.');}
  if(v.status!=='playing')return fail('Матч сейчас не идёт.');if(v.viewer!==v.turn)return fail('Сейчас ход соперника.');
  if(a.type==='end'){cost=0;return ok('Передать ход сопернику.');}
@@ -257,7 +259,7 @@ export function applyAction(input:Game,actor:number,a:Action):Game{
  const status=actionStatus(viewGame(g,actor),a);if(!status.ok)throw new Error(status.reason);
  const p=g.players[actor],enemy=g.players[1-actor];
  if(a.type==='rematch'){g.rematchVotes.push(actor);if(g.rematchVotes.length<2)return g;const next=newGame(g.mode,[g.players[0].name,g.players[1].name],g.rng);next.firstPlayer=1-g.firstPlayer;next.matchNumber=g.matchNumber+1;next.status='setup';return next;}
- if(a.type==='surrender'){g.status='finished';g.winner=1-actor;log(g,`${p.name} сдаётся. Побеждает ${enemy.name}.`);return g;}
+ if(a.type==='surrender'){delete g.pause;g.status='finished';g.finishReason='surrender';g.winner=1-actor;log(g,`${p.name} сдаётся. Побеждает ${enemy.name}.`);return g;}
  if(a.type==='deploy'){
   coreIds.forEach((id,i)=>{p.layout[id]=a.deployment.layout[i];p.nodes[id].shield=a.deployment.shields[i];p.nodes[id].sensor=!!a.deployment.sensors[i];p.nodes[id].auth=a.deployment.auth?.[i]??0;p.nodes[id].backup=!!a.deployment.backups?.[i];});p.ready=true;
   log(g,`${p.name} готов к дуэли.`);
@@ -325,7 +327,7 @@ export function incomeOf(p:Player|PlayerView,actual=true):number{return BASE_INC
 function endTurn(g:Game){
  if(g.turn!==g.firstPlayer){
   for(const p of g.players){const income=incomeOf(p);p.money+=income;p.earned+=income;log(g,`${p.name}: доход +${income}, в казне ${p.money}.`,'all','score');}
-  if(g.players.some(p=>p.money>=MONEY_GOAL)||g.round===MAX_ROUNDS){g.status='finished';g.winner=g.players[0].money===g.players[1].money?null:g.players[0].money>g.players[1].money?0:1;log(g,g.winner===null?'Ничья.':`Побеждает компания ${g.players[g.winner].name}.`,'all','score');return;}
+  if(g.players.some(p=>p.money>=MONEY_GOAL)||g.round===MAX_ROUNDS){delete g.pause;g.status='finished';g.finishReason='score';g.winner=g.players[0].money===g.players[1].money?null:g.players[0].money>g.players[1].money?0:1;log(g,g.winner===null?'Ничья.':`Побеждает компания ${g.players[g.winner].name}.`,'all','score');return;}
   g.round++;for(const p of g.players)for(const n of Object.values(p.nodes))n.interrupted=false;
  }
  g.turn=1-g.turn;g.ap=3;if(g.round>1)draw(g,g.players[g.turn],2);log(g,`Ход: ${g.players[g.turn].name}.`);

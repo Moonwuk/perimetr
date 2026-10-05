@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "checks": [
+    "own node selection does not open dialog",
+    "only built neighbours shown",
+    "enemy known endpoints only",
+    "pivot legal direction and accessible target",
+    "SVG aligned with real grid at4sizes",
+    "all25cells and command visible",
+    "result details overlay does not shrink board"
+  ],
+  "sizes": [
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "cell": [
+        55.59375,
+        50.59375
+      ],
+      "board": {
+        "x": 53.5,
+        "y": 161,
+        "w": 298,
+        "h": 273,
+        "b": 434,
+        "r": 351.5
+      }
+    },
+    {
+      "viewport": [
+        320,
+        568
+      ],
+      "cell": [
+        32.390625,
+        27.390625
+      ],
+      "board": {
+        "x": 76.5,
+        "y": 128,
+        "w": 182,
+        "h": 157,
+        "b": 285,
+        "r": 258.5
+      }
+    },
+    {
+      "viewport": [
+        844,
+        390
+      ],
+      "cell": [
+        49.390625,
+        44.796875
+      ],
+      "board": {
+        "x": 93.84375,
+        "y": 96,
+        "w": 267,
+        "h": 244,
+        "b": 340,
+        "r": 360.84375
+      }
+    },
+    {
+      "viewport": [
+        1280,
+        720
+      ],
+      "cell": [
+        89.390625,
+        84.390625
+      ],
+      "board": {
+        "x": 150.296875,
+        "y": 160.5,
+        "w": 467,
+        "h": 442,
+        "b": 602.5,
+        "r": 617.296875
+      }
+    }
+  ],
+  "pageErrors": []
+}

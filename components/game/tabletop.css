@@ -151,3 +151,12 @@ button.table-money{align-self:stretch;justify-content:center;flex-direction:colu
 .table-field .grid-cell.drop-rejected{opacity:1;box-shadow:inset 0 0 0 2px #f79480;border-color:#f79480}
 .table-own.global-drop-zone{border:2px dashed #b9f96a}.table-own.global-drop-ready{border-style:solid;background:#405639;box-shadow:0 0 14px #b9f96a66}.table-own.global-drop-rejected{border-color:#f79480}
 @media(max-width:350px){.card-drag-hint strong{font-size:11px}.card-drag-hint>span{font-size:9px}.table-own.global-drop-zone .company-name strong{font-size:9px}}
+
+/* Connection recovery floats over the field without shrinking its five rows. */
+.table-stage{position:relative}
+.table-recovery{position:absolute;z-index:12;left:0;right:0;top:35px;pointer-events:none}
+.table-recovery:empty{display:none}
+.table-recovery>.connection-recovery{pointer-events:auto;box-shadow:0 8px 28px #0009;background:#172023}
+.table-command{position:relative;overflow:visible}
+.table-command>.turn-feedback{flex:1;min-width:0;max-height:100%}
+.setup-start .primary-button{white-space:normal;text-align:center;line-height:1.25}

@@ -1,5 +1,13 @@
 plugins { id 'com.android.application' }
 
+def mobileConfig = new groovy.json.JsonSlurper().parse(rootProject.file('../mobile/config.json'))
+def onlineOrigin = (mobileConfig.onlineOrigin ?: '').toString()
+if (onlineOrigin) {
+    def server = new URI(onlineOrigin)
+    if (server.scheme != 'https' || !server.host || server.rawUserInfo || server.rawQuery || server.rawFragment || server.rawPath || (server.port != -1 && server.port != 443)) {
+        throw new GradleException('mobile/config.json onlineOrigin must be a bare HTTPS origin on port 443.')
+    }
+}
 def signingPath = System.getenv('PERIMETER_SIGNING_FILE')
 def signingProps = new Properties()
 if (signingPath) { file(signingPath).withInputStream { signingProps.load(it) } }
@@ -14,6 +22,7 @@ android {
         targetSdk 36
         versionCode 500
         versionName '0.5.0'
+        buildConfigField 'String', 'ONLINE_ORIGIN', groovy.json.JsonOutput.toJson(onlineOrigin)
     }
     signingConfigs {
         if (signingPath) {
@@ -53,6 +62,22 @@ dependencies {
 tasks.register('verifyWebAssets') {
     doLast {
         if (!file('src/main/assets/web/index.html').isFile()) throw new GradleException('Run pnpm android:web before building Android.')
+        def manifest = file('src/main/assets/web/perimeter-build.json')
+        if (!manifest.isFile()) throw new GradleException('Web build metadata is missing. Run pnpm android:web.')
+        def built = new groovy.json.JsonSlurper().parse(manifest)
+        if (built.onlineOrigin != onlineOrigin || built.privacyPolicyUrl != (mobileConfig.privacyPolicyUrl ?: '')) {
+            throw new GradleException('Mobile configuration changed after the web build. Run pnpm android:web again.')
+        }
     }
 }
 tasks.named('preBuild').configure { dependsOn 'verifyWebAssets' }
+
+tasks.register('verifyReleaseSigning') {
+    doLast {
+        if (!signingPath) throw new GradleException('A signed release requires PERIMETER_SIGNING_FILE. Use assembleDebug for local development.')
+        ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].each {
+            if (!signingProps[it]) throw new GradleException('The private signing properties are incomplete.')
+        }
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach { dependsOn 'verifyReleaseSigning' }

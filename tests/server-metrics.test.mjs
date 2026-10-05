@@ -11,7 +11,7 @@ let maxBindings=0;
 const adapter={prepare(sql){if(failMetrics&&sql.includes('metrics_'))throw Error('Simulated metrics outage');let args=[];return {bind(...v){assert(v.length<=100,'D1 supports at most 100 bound parameters per query');maxBindings=Math.max(maxBindings,v.length);args=v;return this;},async first(){if(sql.startsWith('DELETE FROM rooms')&&beforeDelete){const hook=beforeDelete;beforeDelete=undefined;hook();}return db.prepare(sql).get(...args)??null;},async all(){return {results:db.prepare(sql).all(...args)};},run(){const r=db.prepare(sql).run(...args);return {success:true,meta:{changes:Number(r.changes)}};}};},async batch(statements){db.exec('BEGIN');try{const out=statements.map(s=>s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
 globalThis.__contourMetricsTestDb=adapter;
 const compile=source=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
-const transform=source=>source.replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourMetricsTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href));
+const transform=source=>source.replace("import { roomDb } from '@/db/rooms';",'const roomDb=()=>globalThis.__contourMetricsTestDb;').replace("'@/lib/game/engine'",JSON.stringify(new URL('../lib/game/engine.ts',import.meta.url).href)).replace("'@/lib/server/api-origin'",JSON.stringify(new URL('../lib/server/api-origin.ts',import.meta.url).href));
 const libUrl=compile(transform(await readFile(new URL('../lib/server/metrics.ts',import.meta.url),'utf8')));
 const {cleanupMetrics}=await import(libUrl);
 const routes=await import(compile(transform(await readFile(new URL('../app/api/rooms/route.ts',import.meta.url),'utf8')).replace("'@/lib/server/metrics'",JSON.stringify(libUrl))));
@@ -43,6 +43,14 @@ test('client diagnostics authenticate the seat and only accept a small closed ev
  const accepted=await ingest({code:tracked.code,events:[event]},tracked.token);assert.equal(accepted.status,202);assert.equal(accepted.data.accepted,1);
  const row=db.prepare("SELECT * FROM metrics_events WHERE type = 'card_drag'").get();assert.equal(row.source,'client');assert.deepEqual(JSON.parse(row.data),{card:'ddos',outcome:'cancelled',durationMs:350});
 });
+test('Android diagnostics require the room seat and Android cannot access owner export',async()=>{
+ const origin='https://appassets.androidplatform.net',body={code:tracked.code,events:[{type:'card_drag',card:'recon',outcome:'invalid'}]};
+ assert.equal((await ingest(body,tracked.token,origin)).status,202);assert.equal((await ingest(body,'wrong',origin)).status,403);
+ const exportRequest=source=>new Request('https://game.test/api/metrics/export',{headers:{Origin:source,Authorization:`Bearer ${ownerKey}`}});
+ assert.equal((await metrics.handleMetricsExport(exportRequest(origin),ownerKey)).status,403);
+ assert.equal((await metrics.handleMetricsExport(exportRequest('https://evil.test'),ownerKey)).status,403);
+ assert.equal((await metrics.handleMetricsExport(exportRequest('https://game.test'),ownerKey)).status,200);
+});
 test('authoritative card action is recorded once after CAS, errors separately, snapshots omit private data',async()=>{
  const guest=(await post({intent:'join',code:tracked.code,name:'SECRET GUEST NAME'})).data;
  await move(tracked,1,hostSetup);await move(tracked,2,guestSetup,guest.token);
@@ -73,7 +81,7 @@ test('finished results, rematches and abandoned closure persist independently of
  data=(await report()).data;assert.equal(data.matches.find(m=>m.matchNumber===1).status,'finished');assert.equal(data.matches.find(m=>m.matchNumber===2).status,'abandoned');assert.equal(data.matches.find(m=>m.matchNumber===2).finishReason,'closed');
  assert.equal((await ingest({code:tracked.code,events:[{type:'card_drag',card:'ddos',outcome:'submitted'}]},tracked.token)).status,404);
 });
-test('close records the exact deleted state when a move commits after the authorization read',async()=>{
+test('close requires a fresh retry when an update commits after the authorization read',async()=>{
  const host=(await post({intent:'create'})).data;
  // Deterministically place an already-authorized move between close's read and delete.
  beforeDelete=()=>{
@@ -81,11 +89,25 @@ test('close records the exact deleted state when a move commits after the author
   game.players[0].money=123;game.players[1].money=456;game.round=4;
   db.prepare('UPDATE rooms SET state = ?, revision = ? WHERE code = ?').run(JSON.stringify(game),row.revision+1,host.code);
  };
- try{assert.equal((await post({intent:'close',code:host.code},host.token)).status,200);}finally{beforeDelete=undefined;}
+ try{assert.equal((await post({intent:'close',code:host.code},host.token)).status,409);}finally{beforeDelete=undefined;}
+ assert.equal((await post({intent:'close',code:host.code},host.token)).status,200);
  const reportData=(await report()).data,closed=reportData.matches.find(m=>m.status==='abandoned'&&m.money[0]===123);
  assert(closed,'The closure snapshot must come from DELETE RETURNING, not the stale authorization row');assert.deepEqual(closed.money,[123,456]);assert.equal(closed.round,4);
  const closeEvent=reportData.events.find(e=>e.matchId===closed.id&&e.type==='closed');assert.equal(closeEvent.revision,1);
  assert.equal(db.prepare('SELECT code FROM rooms WHERE code = ?').get(host.code),undefined);
+});
+test('disconnect outcome is recorded once, survives retries and close, and never becomes surrender',async()=>{
+ const host=(await post({intent:'create'})).data,guest=(await post({intent:'join',code:host.code})).data;
+ await move(host,1,hostSetup);await move(host,2,guestSetup,guest.token);
+ const state=JSON.parse(db.prepare('SELECT state FROM rooms WHERE code = ?').get(host.code).state),then=Date.now()-121_000;state.startedAt=then;
+ db.prepare('UPDATE rooms SET state = ?, guest_seen_at = ? WHERE code = ?').run(JSON.stringify(state),then,host.code);
+ const body={intent:'claimDisconnect',code:host.code,revision:3};
+ const attempts=await Promise.all([post(body,host.token),post(body,host.token)]);assert.deepEqual(attempts.map(x=>x.status).sort(),[200,409]);
+ assert.equal((await move(host,4,{type:'surrender'})).status,400);
+ assert.equal((await post({intent:'close',code:host.code},host.token)).status,200);
+ const data=(await report()).data,events=data.events.filter(e=>e.type==='disconnect');assert.equal(events.length,1);
+ const match=data.matches.find(m=>m.id===events[0].matchId);assert.equal(match.status,'finished');assert.equal(match.winner,0);assert.equal(match.finishReason,'disconnect');assert(match.endedAt);
+ const closed=data.events.find(e=>e.matchId===match.id&&e.type==='closed');assert(closed);assert.equal(closed.revision,4);
 });
 test('fraud records its full card cost independently of stolen proceeds, reserves record their price',async()=>{
  const host=(await post({intent:'create'})).data,guest=(await post({intent:'join',code:host.code})).data;
@@ -97,6 +119,17 @@ test('fraud records its full card cost independently of stolen proceeds, reserve
  const fraud=(await report()).data.events.find(e=>e.type==='action'&&e.card==='fraud');assert.equal(fraud.moneySpent,35);assert.equal(fraud.moneyDelta,45);assert.equal(fraud.apSpent,1);
  assert.equal((await move(host,4,{type:'reserve',counter:'auth'})).status,200);
  const reserve=(await report()).data.events.find(e=>e.type==='action'&&e.action==='reserve');assert.equal(reserve.moneySpent,30);assert.equal(reserve.moneyDelta,-30);assert.equal(reserve.apSpent,1);
+});
+test('mutual pause decisions are server metrics, deduplicated by revision and do not consume resources',async()=>{
+ const host=(await post({intent:'create'})).data,guest=(await post({intent:'join',code:host.code})).data;
+ await move(host,1,hostSetup);await move(host,2,guestSetup,guest.token);
+ const change=(revision,decision,token=host.token)=>post({intent:'pause',code:host.code,revision,decision},token);
+ const requests=await Promise.all([change(3,'request'),change(3,'request')]);assert.deepEqual(requests.map(r=>r.status).sort(),[200,409]);
+ assert.equal((await change(4,'accept')).status,409);
+ assert.equal((await change(4,'accept',guest.token)).status,200);
+ const resumed=await change(5,'resume',guest.token);assert.equal(resumed.status,200);assert.equal(resumed.data.game.ap,3);assert.deepEqual(resumed.data.game.players.map(p=>p.money),[300,300]);
+ const data=(await report()).data,events=data.events.filter(event=>event.type==='pause');assert.equal(events.length,3);assert.deepEqual(events.map(event=>event.decision).sort(),['accept','request','resume']);assert.deepEqual(events.map(event=>event.revision).sort(),[4,5,6]);
+ const match=data.matches.find(match=>match.id===events[0].matchId);assert.equal(match.status,'playing');assert.equal(match.winner,null);assert.equal(match.finishReason,null);
 });
 test('retention deletes old data and marks forgotten unfinished matches as abandoned',async()=>{
  const stale=Date.now()-31*86_400_000;

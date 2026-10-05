@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "cloudflare/dist/**",
+    "server/dist/**",
+    "server/releases/**",
     "cloudflare/.wrangler/**",
     "android/.gradle/**",
     "android/**/build/**",

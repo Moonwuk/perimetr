@@ -1,0 +1,9 @@
+# Send only the compiled application to Docker, never local keys, databases or exports.
+**
+!server.mjs
+!public/
+!public/**
+!drizzle/
+!drizzle/**
+!deploy/
+!deploy/*.mjs

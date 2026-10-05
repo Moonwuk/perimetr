@@ -6,13 +6,15 @@ import {readFileSync} from 'node:fs';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const config=JSON.parse(readFileSync(new URL('./config.json',import.meta.url),'utf8'));
 const origin=config.onlineOrigin||'';
-if(origin && (new URL(origin).protocol!=='https:' || new URL(origin).origin!==origin))throw new Error('onlineOrigin must be a bare HTTPS origin');
+const policy=config.privacyPolicyUrl||'';
+if(origin && (new URL(origin).protocol!=='https:' || new URL(origin).origin!==origin || new URL(origin).port))throw new Error('onlineOrigin must be a bare HTTPS origin on port 443');
+if(policy && (new URL(policy).protocol!=='https:' || new URL(policy).username || new URL(policy).password))throw new Error('privacyPolicyUrl must be a public HTTPS URL');
 export default defineConfig({
   root:fileURLToPath(new URL('.',import.meta.url)),
   base:'./',
-  plugins:[react(),{name:'mobile-csp',transformIndexHtml(html){return origin?html.replace("connect-src 'self'",`connect-src 'self' ${origin}`):html;}}],
+  plugins:[react(),{name:'mobile-csp',transformIndexHtml(html){return origin?html.replace("connect-src 'self'",`connect-src 'self' ${origin}`):html;},generateBundle(){this.emitFile({type:'asset',fileName:'perimeter-build.json',source:JSON.stringify({onlineOrigin:origin,privacyPolicyUrl:policy})});}}],
   resolve:{alias:{'@':root}},
-  define:{'globalThis.__PERIMETER_ONLINE_ORIGIN__':JSON.stringify(origin)},
+  define:{'globalThis.__PERIMETER_ONLINE_ORIGIN__':JSON.stringify(origin),'globalThis.__PERIMETER_PRIVACY_URL__':JSON.stringify(policy)},
   css:{postcss:root},
   build:{target:'chrome111',outDir:`${root}/android/app/src/main/assets/web`,emptyOutDir:true,sourcemap:false},
 });

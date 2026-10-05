@@ -1,3 +1,4 @@
+import { isAllowedApiOrigin } from '@/lib/server/api-origin';
 import { env } from 'cloudflare:workers';
 import { roomDb } from '@/db/rooms';
 import { CARDS, upgradeGame, type Game } from '@/lib/game/engine';
@@ -10,6 +11,7 @@ const iso=(v:unknown)=>v==null?null:new Date(Number(v)).toISOString();
 type MatchRow={id:string;match_number:number;visibility:string;status:string;round:number;first_player:number;winner:number|null;money0:number;money1:number;income0:number;income1:number;created_at:number;updated_at:number;started_at:number|null;ended_at:number|null;finish_reason:string|null};
 type EventRow={id:string;match_id:string;at:number;source:string;type:string;actor:number|null;revision:number;round:number;data:string};
 export async function handleMetricsExport(request:Request,exportToken?:string){
+ if(!isAllowedApiOrigin(request))return json({error:'Недопустимый источник запроса.'},403);
  if(!exportToken)return json({error:'Экспорт метрик ещё не настроен владельцем.'},503);
  const supplied=request.headers.get('authorization')?.match(/^Bearer (.{1,512})$/)?.[1];
  if(!supplied||!await sameSecret(supplied,exportToken))return json({error:'Нужен ключ владельца для экспорта метрик.'},401);
@@ -30,7 +32,7 @@ export async function handleMetricsExport(request:Request,exportToken?:string){
 }
 export async function GET(request:Request){return handleMetricsExport(request,(env as unknown as {METRICS_EXPORT_TOKEN?:string}).METRICS_EXPORT_TOKEN);}
 export async function POST(request:Request){
- const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return json({error:'Недопустимый источник запроса.'},403);
+ if(!isAllowedApiOrigin(request))return json({error:'Недопустимый источник запроса.'},403);
  if(Number(request.headers.get('content-length')??0)>4096)return json({error:'Слишком большой запрос.'},413);
  let body:Record<string,unknown>;
  try{
