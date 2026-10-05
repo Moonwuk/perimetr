@@ -1,0 +1,108 @@
+/* The illustrated face uses generated raster art; every rule and price stays live. */
+@font-face {
+ font-family: 'Oswald';
+ src: url('./assets/fonts/Oswald-Variable.ttf') format('truetype');
+ font-style: normal;
+ font-weight: 200 700;
+ font-display: swap;
+}
+.card-face {
+ --comic-accent: #ff515b;
+ --comic-frame-filter: sepia(.7) saturate(2) hue-rotate(310deg);
+ position: relative;
+ isolation: isolate;
+ display: block;
+ width: 100%;
+ min-width: 0;
+ overflow: hidden;
+ container-type: inline-size;
+ color: #f7f4e8;
+ text-align: center;
+ line-height: 1.15;
+ border-radius: 5%;
+ background: #071015;
+ box-shadow: 0 5px 10px #0009;
+ font-family: 'Oswald', 'Arial Narrow', Arial, sans-serif;
+}
+.card-face.defense { --comic-accent: #48ddec; --comic-frame-filter: sepia(.7) saturate(2) hue-rotate(145deg); }
+.card-face.economy { --comic-accent: #ffc84d; --comic-frame-filter: sepia(.7) saturate(2); }
+.card-face-frame { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: fill; filter: var(--comic-frame-filter); pointer-events: none; }
+.card-face-content { display: grid; position: relative; padding: 5.3% 6.5% 6.8%; }
+.card-face-prices { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; padding: 0 2% 2%; font-weight: 900; font-size: clamp(19px, 9cqi, 33px); font-variant-numeric: tabular-nums; }
+.card-face-money, .card-face-ap { display: inline-flex; align-items: center; gap: .22em; white-space: nowrap; }
+.card-face-money { color: #ffe498; }
+.card-face-money svg { width: .88em; height: .88em; stroke-width: 2.7; }
+.card-face-ap { color: #caff7a; }
+.card-face-ap>span { font-size: .62em; }
+.card-face-title { display: flex; align-items: center; justify-content: center; min-height: 1.45em; padding: .15em .22em; background: var(--comic-accent); color: #061114; border: 1px solid #ffffff55; border-radius: 2px; font-size: clamp(17px, 7cqi, 26px); font-weight: 900; line-height: 1.05; text-wrap: balance; overflow-wrap: anywhere; }
+.card-face-title.long-title { font-size: clamp(16px, 6cqi, 23px); }
+.card-face-art { position: relative; display: block; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #ffffff26; }
+.card-face-art>img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.card-face-kind { display: flex; justify-content: center; align-items: center; gap: .38em; min-height: 2.15em; padding: .2em .1em; color: var(--comic-accent); background: #0d151b; border: 1px solid var(--comic-accent); font-size: clamp(12px, 4.6cqi, 18px); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.card-face-kind svg { width: 1.15em; height: 1.15em; stroke-width: 2.4; }
+.card-face-rules { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 12px 10px 9px; min-height: 90px; background: #0c141b; }
+.card-face-rules>strong { font-size: clamp(16px, 5.9cqi, 23px); line-height: 1.25; font-weight: 700; text-wrap: balance; }
+.card-face-rules>span { align-self: stretch; border-top: 1px solid #859a9955; padding-top: 9px; color: #a9bec6; font-size: clamp(12px, 4.3cqi, 16px); }
+.card-face.full .card-face-art { aspect-ratio: 1.22; }
+.card-face.full .card-face-content { min-height: 100%; }
+.card-face.compact { height: 100%; }
+.card-face.compact .card-face-content { height: 100%; grid-template-rows: auto minmax(27px, auto) minmax(0, 1fr) auto; padding: 5% 6% 6.5%; }
+.card-face.compact .card-face-prices { font-size: clamp(13px, 10.7cqi, 21px); padding-bottom: 2%; }
+.card-face.compact .card-face-title { min-height: 27px; font-size: clamp(10px, 8.3cqi, 16px); line-height: 1.05; }
+.card-face.compact .card-face-title.long-title { font-size: clamp(10px, 7.6cqi, 15px); }
+.card-face.compact .card-face-kind { min-height: 1.85em; font-size: clamp(9px, 6.9cqi, 12px); letter-spacing: .025em; }
+.card-face-status { position: absolute; inset: auto 0 0; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 3px 2px; background: #141820ed; color: #f3ce9f; font-family: Arial, sans-serif; font-size: clamp(9px, 6.8cqi, 11px); line-height: 1.15; }
+.card-face-status svg { width: 11px; height: 11px; }
+.hand-card.comic-hand-card, .table-hand .hand-card.comic-hand-card { position: relative; display: block; padding: 0; border: 0; border-radius: 6%; background: transparent; text-align: center; box-shadow: none; }
+.hand-card.comic-hand-card .card-face { transition: box-shadow .15s ease; }
+.hand-card.comic-hand-card.unavailable .card-face-art>img { filter: saturate(.72) brightness(.8); }
+.hand-card.comic-hand-card.selected, .table-hand .hand-card.comic-hand-card.selected { background: transparent; border: 0; box-shadow: 0 0 0 2px #bfff70, 0 0 13px #bfff7077; transform: translateY(-3px); }
+.hand-card.comic-hand-card:hover .card-face { box-shadow: 0 0 0 1px #dfffb3, 0 5px 12px #0009; }
+.hand-card.comic-hand-card:focus-visible { outline: 3px solid #caff7a; outline-offset: 3px; }
+.card-inspection-layout { display: grid; grid-template-columns: minmax(240px, 330px) minmax(0, 1fr); align-items: start; gap: 24px; }
+.card-inspection-layout>.card-face { max-width: 330px; justify-self: center; }
+.card-inspection-notes { display: flex; flex-direction: column; gap: 16px; }
+.card-inspection-notes h3 { color: #e9f0f3; font-size: 16px; font-weight: 700; }
+.card-inspection-notes>p { font-size: 15px; line-height: 1.6; color: #bfd1db; }
+.card-inspection-notes .card-sheet-status { margin: 0; }
+.card-inspection-notes .learn-box { margin: 0; }
+.game-dialog.library-dialog { width: min(1050px, calc(100vw - 24px)); max-width: 1050px!important; }
+.card-library { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: start; gap: 20px; padding: 7px 3px 10px; }
+.card-library-entry { min-width: 0; }
+.card-library-entry summary { display: block; list-style: none; cursor: pointer; border-radius: 9px; }
+.card-library-entry summary::-webkit-details-marker { display: none; }
+.card-library-entry summary .card-face { transition: box-shadow .15s ease; }
+.card-library-entry summary:hover .card-face, .card-library-entry[open] summary .card-face { box-shadow: 0 0 0 2px #caff7a, 0 5px 12px #0009; }
+.card-library-entry .card-face-rules { min-height: 95px; padding: 11px 7px 7px; gap: 9px; }
+.card-library-entry .card-face-rules>strong { font-size: clamp(14px, 6.3cqi, 18px); }
+.card-library-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; color: #bed39c; font-size: 13px; }
+.card-library-toggle svg { width: 15px; height: 15px; }
+.card-library-entry[open] .card-library-toggle svg { transform: rotate(180deg); }
+.card-library-detail { margin-top: 12px; padding: 12px; border: 1px solid #49616d; border-radius: 7px; background: #192a33; }
+.card-library-detail>p { font-size: 14px; line-height: 1.6; color: #d4e1e8; }
+.card-library-detail .learn-box { margin-top: 12px; padding: 0; border: 0; }
+.card-library-detail .learn-box p { font-size: 13px; }
+@media (max-width: 600px) {
+ .card-inspection-layout { grid-template-columns: 1fr; gap: 20px; }
+ .card-inspection-layout>.card-face { width: min(100%, 306px); }
+ .card-inspection-notes { gap: 12px; }
+ .card-library { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+ .card-library .card-face-title { min-height: 2.25em; font-size: clamp(12px, 7.2cqi, 18px); }
+ .card-library .card-face-title.long-title { font-size: clamp(11px, 6.8cqi, 17px); }
+ .card-library .card-face-prices { font-size: clamp(16px, 10cqi, 24px); }
+ .card-library .card-face-rules { min-height: 100px; gap: 8px; }
+ .card-library .card-face-rules>strong { font-size: clamp(12px, 7cqi, 16px); }
+ .card-library .card-face-rules>span { font-size: 11px; }
+ .card-library .card-face-kind { font-size: clamp(9px, 6.8cqi, 13px); }
+ .card-library-entry[open] { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(125px, .8fr) minmax(0, 1fr); gap: 12px; }
+ .card-library-entry[open] .card-library-detail { margin: 0; }
+}
+@media (max-width: 350px) {
+ .card-library-entry[open] { grid-template-columns: 1fr; }
+ .card-library-entry[open]>summary { width: min(100%, 210px); justify-self: center; }
+ .card-library .card-face-rules>strong { font-size: 12px; }
+ .card-library-toggle { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .hand-card.comic-hand-card .card-face, .card-library-entry summary .card-face { transition: none; }
+}
