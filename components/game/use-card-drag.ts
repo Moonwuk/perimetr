@@ -55,8 +55,11 @@ export function useCardDrag({enabled,resetKey,selected,onStart,onMove,onDrop,onC
   suppressClick.current=false;
   const current:Gesture={card,kind,id,pointerType,origin:point,point,source,active:false,timer:null};
   gesture.current=current;
-  current.timer=setTimeout(()=>activate(current),HOLD_MS);
- },[enabled,finish,activate]);
+  // Once a card is selected it behaves like a raised physical card: the next
+  // press can immediately become an aim gesture. Unselected touch cards keep the
+  // hold threshold so horizontal hand scrolling remains available.
+  current.timer=setTimeout(()=>activate(current),card===selected?0:HOLD_MS);
+ },[enabled,finish,activate,selected]);
 
  // This guard outlives the gesture: a drop can immediately disable dragging while
  // its compatibility click is still queued. A new press resets it; keyboard clicks pass.
