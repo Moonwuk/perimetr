@@ -183,3 +183,33 @@
  .tabletop{grid-template-rows:39px minmax(0,1fr) 40px 151px 54px}
  .tabletop.has-node-actions{grid-template-rows:32px minmax(84px,1fr) 36px 132px auto}
 }
+
+/* Keep the single action/feedback panel between the card filters and the hand. */
+@media(max-width:1099px){
+ .table-hand,.table-hand>[data-slot=tabs]{display:contents}
+ .table-hand .hand-tabs{grid-area:filters;width:100%;border-top:1px solid #3b4c43!important}
+ .table-hand [data-slot=tabs-content]{grid-area:hand}
+ .table-command{overflow:visible}
+ .tabletop{
+  grid-template-rows:30px 48px minmax(0,1fr) 48px 29px minmax(58px,auto) 166px;
+  grid-template-areas:'nav nav' 'enemy enemy' 'field field' 'self end' 'filters filters' 'command command' 'hand hand';
+ }
+ .tabletop.has-node-actions{grid-template-rows:30px 44px minmax(110px,1fr) 44px 29px auto 136px}
+}
+@media(max-width:1099px) and (max-aspect-ratio:6/5){
+ .tabletop{
+  grid-template-rows:48px minmax(0,1fr) 48px 29px minmax(58px,auto) 166px;
+  grid-template-areas:'enemy enemy' 'field field' 'self end' 'filters filters' 'command command' 'hand hand';
+ }
+ .tabletop.has-node-actions{grid-template-rows:44px minmax(110px,1fr) 44px 29px auto 136px}
+}
+@media(max-width:1099px) and (max-height:650px) and (max-aspect-ratio:6/5){
+ .tabletop{grid-template-rows:39px minmax(0,1fr) 40px 27px 54px 121px}
+ .tabletop.has-node-actions{grid-template-rows:32px minmax(84px,1fr) 36px 27px auto 102px}
+}
+@media(max-width:1099px) and (max-height:500px) and (min-aspect-ratio:6/5){
+ .tabletop,.tabletop.has-node-actions{
+  grid-template-rows:30px 40px 29px auto minmax(0,1fr);
+  grid-template-areas:'nav nav nav' 'enemy self end' 'field filters filters' 'field command command' 'field hand hand';
+ }
+}
