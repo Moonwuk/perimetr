@@ -63,11 +63,12 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
  const node=selection&&selectedPlayer?NODES.find(n=>selectedPlayer.layout[n.id]===selection.cell):null;
  const canExchange=!!card&&myTurn&&!busy&&(me.exchangeRound??0)!==view.round&&!!me.exchangeOptions[card]?.length;
  const threats=Object.values(me.nodes).filter(n=>n?.detected).length;
+ const turnLabel=view.status==='finished'?'Матч завершён':view.pause?.pausedAt?'Пауза':myTurn?'Ваш ход':'Ход соперника';
  const summary=commandStatus?(commandStatus.ok?commandStatus.preview:commandStatus.reason):myTurn?(view.ap===0?'Действия закончились. Передайте ход сопернику.':card?'Выберите подсвеченную цель. Деньги спишутся после «Сыграть».':side==='enemy'?'Клетка → «Разведать»: 0 кредитов, 1 действие.':'Нажмите узел: расследование, очистка и ремонт без карт.'):'Можно осмотреть поле и карты. Действия доступны в ваш ход.';
  return <main ref={tableRef} className={`tabletop ${!card&&node&&selection?.side==='own'?'has-node-actions':''} ${drag?'card-is-dragging':''}`} aria-label={t("Игровой стол")}>
   <header className="table-toolbar"><span className="table-brand"><Network size={26}/>{t("КОНТУР")}</span>
    <button className="table-icon" onClick={()=>onDetails('menu')} aria-label={t("Меню матча")}><Menu size={20}/></button>
-   <strong className={myTurn?'your-turn':''}>{t(view.status==='finished'?'Матч завершён':view.pause?.pausedAt?'Пауза':myTurn?'Ваш ход':'Ход соперника')}</strong>
+   <strong className={myTurn?'your-turn':''}>{t(turnLabel)}</strong>
    {t(online&&<button className="table-pause" onClick={onPause??(()=>onDetails('room'))} disabled={busy||!!view.pause}><Pause size={16}/><span>{t("Пауза")}</span></button>)}
    {t(online&&<button className={`table-icon connection-icon ${connection==='Подключено'?'connected':'disconnected'}`} onClick={()=>onDetails('room')} aria-label={t(`Комната: ${connection}. ${opponentStatus}`)}><Wifi size={18}/></button>)}
   </header>
@@ -82,6 +83,21 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
   </section>
 
   <section className={`table-stage ${side==='own'?'own-stage':'enemy-stage'} ${card?'has-target-hint':''}`} aria-label={t(side==='own'?'Ваше поле':'Поле соперника')}>
+   <nav className="mobile-field-rail mobile-field-left" aria-label={t("Меню матча")}>
+    <button onClick={()=>onDetails('menu')} aria-label={t("Меню матча")} title={t("Меню матча")}><Menu size={20}/><span>{t("Меню")}</span></button>
+    <div className="mobile-network-switch" role="group" aria-label={t("Какое поле показать")}>
+     <button aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')} aria-label={t("Показать поле соперника")} title={t("Показать поле соперника")}><Network size={19}/><span>{t("Соперник")}</span></button>
+     <button aria-pressed={side==='own'} onClick={()=>onSide('own')} aria-label={t("Показать своё поле")} title={t("Показать своё поле")}><Shield size={19}/><span>{t("Моя сеть")}</span>{t(threats>0&&<b>{t(threats)}</b>)}</button>
+    </div>
+    {t(side==='enemy'&&<button className={!card?'active':''} onClick={onClear} aria-label={t("Разведка без карты: 1 действие, 0 кредитов")} aria-pressed={!card}><ScanLine size={18}/><span>{t("Скан ")}<small>1 <Zap size={10}/></small></span></button>)}
+    {t(online&&<><button onClick={onPause??(()=>onDetails('room'))} disabled={busy||!!view.pause} aria-label={t("Пауза")} title={t("Пауза")}><Pause size={18}/><span>{t("Пауза")}</span></button><button className={`connection-icon ${connection==='Подключено'?'connected':'disconnected'}`} onClick={()=>onDetails('room')} aria-label={t(`Комната: ${connection}. ${opponentStatus}`)} title={t(connection??'Комната и связь')}><Wifi size={18}/></button></>)}
+   </nav>
+   <aside className="mobile-field-rail mobile-field-right" aria-label={t("Секретное дежурство")}>
+    <strong className={`mobile-turn-status ${myTurn?'your-turn':''}`} role="status">{t(turnLabel)}</strong>
+    <button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label={t("Подготовить секретное дежурство")} title={t("Секретное дежурство")}><Shield size={19}/><span>{t(me.reserve?'Готово':'Дежурство')}</span></button>
+    <button onClick={()=>onDetails('guide')} aria-label={t("Как сделать ход")} title={t("Как сделать ход")}><CircleHelp size={20}/></button>
+    <button onClick={()=>onDetails('log')} aria-label={t("Журнал матча")} title={t("Журнал матча")}><Radio size={20}/></button>
+   </aside>
    <div className="table-field-heading">
     <div className="field-switch" role="group" aria-label={t("Какое поле показать")}><button aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')}><ScanLine size={14}/>{t("Соперник")}</button><button aria-pressed={side==='own'} onClick={()=>onSide('own')}><Shield size={14}/>{t("Моя сеть")}{t(threats>0&&<b>{t(threats)}</b>)}</button></div>
     {t(side==='enemy'?<button className={!card?'active':''} onClick={onClear} aria-label={t("Разведка без карты: 1 действие, 0 кредитов")} aria-pressed={!card}>{t("Скан ")}<small>1 <Zap size={11}/></small></button>:<div className="reserve-tools"><button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label={t("Подготовить секретное дежурство")}><Shield size={14}/><span>{t(me.reserve?'Готово':'Дежурство')}</span></button><div className="reserve-quick-actions"><button onClick={()=>onDetails('guide')} aria-label={t("Как сделать ход")}><CircleHelp size={13}/></button><button onClick={()=>onDetails('log')} aria-label={t("Журнал матча")}><Radio size={13}/></button></div></div>)}
