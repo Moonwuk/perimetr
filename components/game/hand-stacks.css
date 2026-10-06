@@ -1,0 +1,50 @@
+/* Copies share one interactive face. All layers stay inside its layout slot. */
+.hand-card.comic-hand-card.has-copies {
+ --stack-edge: #a95d61;
+ isolation: isolate;
+ overflow: visible;
+}
+.hand-card.comic-hand-card.has-copies.defense { --stack-edge: #509da7; }
+.hand-card.comic-hand-card.has-copies.economy { --stack-edge: #a68a49; }
+.hand-card.comic-hand-card.has-copies::before,
+.hand-card.comic-hand-card.has-copies::after {
+ content: '';
+ position: absolute;
+ border: 1px solid var(--stack-edge);
+ border-radius: 6%;
+ background: linear-gradient(135deg, #22333d, #0a1720);
+ box-shadow: 2px 1px 3px #0006;
+ pointer-events: none;
+}
+.hand-card.comic-hand-card.has-copies::after {
+ inset: 2px 3px 1px 3px;
+ z-index: 1;
+}
+.hand-card.comic-hand-card.has-copies::before {
+ inset: 4px 0 2px 6px;
+ z-index: 0;
+}
+.hand-card.comic-hand-card[data-stack-count='2']::before { display: none; }
+.hand-card.comic-hand-card.has-copies>.card-face {
+ z-index: 2;
+ width: calc(100% - 6px);
+}
+.hand-card.comic-hand-card>.hand-stack-count {
+ position: absolute;
+ z-index: 3;
+ top: 47%;
+ right: 7%;
+ display: grid;
+ place-items: center;
+ min-width: 27px;
+ min-height: 24px;
+ padding: 2px 5px;
+ border: 1px solid #edf4d6;
+ border-radius: 6px;
+ background: #102127f2;
+ color: #f3ffdc;
+ box-shadow: 0 2px 5px #000a;
+ font: 800 13px/1 Arial, sans-serif;
+ font-variant-numeric: tabular-nums;
+ pointer-events: none;
+}
