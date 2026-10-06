@@ -44,7 +44,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
    const current=dragRef.current;cancelDrag();
    if(!current)return;
    const record=(outcome:'submitted'|'cancelled'|'invalid')=>trackMetric('card_drag',{card:current.card,outcome,durationMs:performance.now()-current.startedAt});
-   if(card!==current.card||!myTurn||busy||!me.hand.includes(current.card)){record('cancelled');return;}
+   if(!myTurn||busy||!me.hand.includes(current.card)){record('cancelled');return;}
    const hit=dropAt(tableRef.current,current.card,point);
    if(!hit.target&&!hit.globalZone){record('cancelled');return;}
    const move=actionFor(view,current.card,hit.target);
@@ -57,6 +57,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
  const dragStatus=dragAction?actionStatus(view,dragAction):null;
  const dragLabel=dragStatus?(dragStatus.ok?'Отпустите — сыграть':dragStatus.reason):drag&&CARDS[drag.card].side==='none'?'Перенесите на панель «Моя сеть»':'Перенесите на подсвеченную цель';
  const fieldSelection=drag?drag.target:selection;
+ const fieldCard=drag?.card??card;
  const action=actionFor(view,card,selection),status=action?actionStatus(view,action):null,readiness=card?cardReadiness(view,card):null;
  const commandStatus=status&&action&&'node' in action&&action.node?status:readiness&&!readiness.ok?readiness:status;
  const selectedPlayer=selection?view.players[selection.side==='own'?view.viewer:1-view.viewer]:null;
@@ -105,7 +106,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
    <div className="table-recovery">{t(recovery)}</div>
    <div className="table-boards">{t((['own','enemy'] as const).map(boardSide=><section key={boardSide} className={`table-board-panel board-${boardSide} ${side===boardSide?'active-board':''}`} aria-label={t(boardSide==='own'?'Ваша сеть':'Сеть соперника')}>
     <div className="desktop-board-heading"><span>{t(boardSide==='own'?<Shield size={21}/>:<Network size={21}/>)} {t(boardSide==='own'?'Ваша сеть':'Сеть соперника')}</span>{t(boardSide==='own'?<div className="desktop-reserve-tools"><button className="desktop-reserve-main" onClick={()=>onDetails('reserve')}><Shield size={14}/>{t(me.reserve?'Дежурство готово':'Дежурство')}</button><div className="desktop-reserve-quick"><button onClick={()=>onDetails('guide')} aria-label={t("Как сделать ход")}><CircleHelp size={13}/></button><button onClick={()=>onDetails('log')} aria-label={t("Журнал матча")}><Radio size={13}/></button></div></div>:<button onClick={()=>{onClear();onSide('enemy');}}><ScanLine size={14}/>{t("Разведка")}</button>)}</div>
-    <div className="table-field"><GridBoard view={view} side={boardSide} selected={fieldSelection} card={card} onSelect={onCell} drop={drag?.target?{selection:drag.target,valid:!!dragStatus?.ok}:null}/></div>
+    <div className="table-field"><GridBoard view={view} side={boardSide} selected={fieldSelection} card={fieldCard} onSelect={onCell} drop={drag?.target?{selection:drag.target,valid:!!dragStatus?.ok}:null}/></div>
    </section>))}</div>
    <p className="table-field-tip">{t(card?`${CARDS[card].name} · ${CARDS[card].side==='none'?'без выбора цели':fieldSelection?coordinate(fieldSelection.cell):'выберите цель'}`:node&&selection?`${selection.side==='own'?'Выбран ваш узел':'Выбрана цель'} · ${coordinate(selection.cell)}`:'Выберите карту или узел')}</p>
   </section>

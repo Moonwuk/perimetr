@@ -12,14 +12,14 @@ type Callbacks={
 };
 type Options=Callbacks&{enabled:boolean;resetKey:string|number;selected:CardId|null};
 type Gesture={
- card:CardId;kind:'touch'|'pointer';pointerType:string;id:number;
+ card:CardId;kind:'touch'|'pointer';pointerType:string;id:number;scrollAxis:'x'|'y';
  origin:CardDragPoint;point:CardDragPoint;source:HTMLElement;
  active:boolean;timer:ReturnType<typeof setTimeout>|null;
 };
 const HOLD_MS=280,MOVE_TOLERANCE=10;
 const pointOf=(event:{clientX:number;clientY:number}):CardDragPoint=>({x:event.clientX,y:event.clientY});
 
-/** A quick touch stays a click or native hand scroll. Only a held card owns the gesture. */
+/** Lift directly towards a target; swipes along the hand rail still scroll it. */
 export function useCardDrag({enabled,resetKey,selected,onStart,onMove,onDrop,onCancel}:Options){
  const callbacks=useRef<Callbacks>({onStart,onMove,onDrop,onCancel});
  const gesture=useRef<Gesture|null>(null);
@@ -53,13 +53,14 @@ export function useCardDrag({enabled,resetKey,selected,onStart,onMove,onDrop,onC
   if(!enabled)return;
   finish(false,undefined,true);
   suppressClick.current=false;
-  const current:Gesture={card,kind,id,pointerType,origin:point,point,source,active:false,timer:null};
+  const hand=source.closest<HTMLElement>('.compact-hand'),style=hand?window.getComputedStyle(hand):null;
+  const scrollAxis=style&&/^(auto|scroll)$/.test(style.overflowY)&&/^(hidden|clip)$/.test(style.overflowX)?'y':'x';
+  const current:Gesture={card,kind,id,pointerType,scrollAxis,origin:point,point,source,active:false,timer:null};
   gesture.current=current;
-  // Once a card is selected it behaves like a raised physical card: the next
-  // press can immediately become an aim gesture. Unselected touch cards keep the
-  // hold threshold so horizontal hand scrolling remains available.
-  current.timer=setTimeout(()=>activate(current),card===selected?0:HOLD_MS);
- },[enabled,finish,activate,selected]);
+  // Holding remains an alternative, but selection never changes the gesture.
+  // Movement towards the board activates it before this timer expires.
+  current.timer=setTimeout(()=>activate(current),HOLD_MS);
+ },[enabled,finish,activate]);
 
  // This guard outlives the gesture: a drop can immediately disable dragging while
  // its compatibility click is still queued. A new press resets it; keyboard clicks pass.
@@ -86,9 +87,11 @@ export function useCardDrag({enabled,resetKey,selected,onStart,onMove,onDrop,onC
    current.point=point;
    if(!current.active){
     if(Math.hypot(point.x-current.origin.x,point.y-current.origin.y)>MOVE_TOLERANCE){
-     // Mouse dragging needs no hold; fingers/styli keep native scrolling until held.
-     if(current.kind==='pointer'&&current.pointerType==='mouse')activate(current);
-     else{finish(false,undefined,true);return;}
+     const dx=Math.abs(point.x-current.origin.x),dy=Math.abs(point.y-current.origin.y);
+     // Phones scroll the hand horizontally; the wide table uses a vertical rail.
+     // Movement out of that rail towards the field lifts any card immediately.
+     if(current.kind==='touch'&&(current.scrollAxis==='x'?dx>dy:dy>dx)){finish(false,undefined,true);return;}
+     activate(current);
     }else return;
    }
    // An uncancellable touch means the browser already owns scrolling: never play it.
