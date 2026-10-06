@@ -6,6 +6,7 @@ import Page from '../../app/page';
 import '../../app/globals.css';
 import '../../components/game/tabletop.css';
 import '../../components/game/desktop-table.css';
+import '../../components/game/desktop-layout.css';
 import './web.css';
 
 class RecoveryBoundary extends Component<PropsWithChildren,{failed:boolean}>{

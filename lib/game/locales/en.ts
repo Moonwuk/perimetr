@@ -120,6 +120,8 @@ export const english: Record<string,string> = {
  "Все карты": "All cards",
  "Финансы": "Finances",
  "Журнал": "Journal",
+ "Помощь": "Help",
+ "Управление матчем": "Match controls",
  "Р": "R",
  "Постройте компанию, которая выстоит": "Build a company that can withstand the attack",
  "Скрытая сеть, смешанная колода и гонка до": "A hidden network, a mixed deck and a race to",
