@@ -123,7 +123,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
    {t(action&&<button className="table-play" disabled={!!drag||!myTurn||busy||!status?.ok} onClick={()=>onAction(action)} aria-label={t(card?`Сыграть «${CARDS[card].name}» за ${CARDS[card].money} кредитов и ${CARDS[card].cost} ${CARDS[card].cost===1?'действие':'действия'}`:'Разведать за 1 действие')}>{t(busy?<LoaderCircle className="spin" size={16}/>:!card&&<Play size={15}/>)}<span>{t(busy?'Ход…':card?'Сыграть':'Разведать')}{t(card&&!busy&&<small>{t(CARDS[card].money)} ¤ · {t(CARDS[card].cost)}{t(" ОД")}</small>)}</span></button>)}
    </>)}
   </section>
-  <div className="table-end-controls"><button className="table-details" onClick={()=>onDetails(card?'card':'log')}><Info size={17}/><span>{t(card?'О карте':'Журнал')}</span></button><button className="table-end" disabled={!myTurn||busy} onClick={onEnd} aria-label={t("Закончить ход")}><Flag size={18}/><span>{t("Конец хода")}</span></button></div>
+  <div className="table-end-controls">{t(card&&<button className="table-details" onClick={()=>onDetails('card')}><Info size={17}/><span>{t("О карте")}</span></button>)}<button className="table-end" disabled={!myTurn||busy} onClick={onEnd} aria-label={t("Закончить ход")}><Flag size={18}/><span>{t("Конец хода")}</span></button></div>
   {t(drag&&<div className={`card-drag-layer ${dragStatus?.ok?'can-drop':''}`} aria-hidden="true">
    <div className="card-drag-ghost" style={{left:Math.max(64,Math.min(drag.point.x,window.innerWidth-64)),top:Math.max(6,drag.point.y-168)}}><CardFace id={drag.card} variant="compact" decorative/></div>
    <span className="card-drag-aim" style={{left:drag.point.x,top:drag.point.y}}/>
