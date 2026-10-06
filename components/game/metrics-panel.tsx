@@ -1,4 +1,6 @@
 'use client';
+import {t} from '@/lib/game/translate';
+
 
 import {useEffect,useId,useRef,useState,type FormEvent} from 'react';
 import {Download,LoaderCircle} from 'lucide-react';
@@ -61,9 +63,9 @@ export function MetricsPanel(){
  }
 
  return <form className="metrics-panel" onSubmit={event=>void downloadReport(event)}>
-  <p>Общий отчёт по сетевым матчам за последние 30 дней.</p>
-  <div className="metrics-key-field"><label htmlFor={keyId}>Ключ владельца</label><input id={keyId} type="password" value={ownerKey} readOnly={busy} autoComplete="off" autoCapitalize="none" spellCheck={false} onChange={event=>{setOwnerKey(event.target.value);setMessage('');setFailed(false);}}/></div>
-  <button type="submit" className="metrics-download" disabled={busy||!ownerKey.trim()}>{busy?<LoaderCircle size={18} className="spin" aria-hidden="true"/>:<Download size={18} aria-hidden="true"/>}{busy?'Готовим отчёт…':'Скачать отчёт'}</button>
-  {message&&<p className={`metrics-feedback${failed?' failed':''}`} role={failed?'alert':'status'}>{message}</p>}
+  <p>{t("Общий отчёт по сетевым матчам за последние 30 дней.")}</p>
+  <div className="metrics-key-field"><label htmlFor={keyId}>{t("Ключ владельца")}</label><input id={keyId} type="password" value={ownerKey} readOnly={busy} autoComplete="off" autoCapitalize="none" spellCheck={false} onChange={event=>{setOwnerKey(event.target.value);setMessage('');setFailed(false);}}/></div>
+  <button type="submit" className="metrics-download" disabled={busy||!ownerKey.trim()}>{t(busy?<LoaderCircle size={18} className="spin" aria-hidden="true"/>:<Download size={18} aria-hidden="true"/>)}{t(busy?'Готовим отчёт…':'Скачать отчёт')}</button>
+  {t(message&&<p className={`metrics-feedback${failed?' failed':''}`} role={failed?'alert':'status'}>{t(message)}</p>)}
  </form>;
 }

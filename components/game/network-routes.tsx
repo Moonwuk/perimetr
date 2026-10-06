@@ -1,4 +1,6 @@
 'use client';
+import {t} from '@/lib/game/translate';
+
 import {useEffect,useId,useRef,useState} from 'react';
 import {coordinate} from '@/lib/game/engine';
 import {routeDescription,type VisibleRoute} from '@/lib/game/visible-routes';
@@ -24,7 +26,7 @@ export function NetworkRoutes({routes}:{routes:VisibleRoute[]}){
   <defs>
    <marker id={`${id}-arrow`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 7 4 L 1 7" fill="none" stroke="currentColor" strokeWidth="1.5"/></marker>
   </defs>
-  {size.width>0&&routes.map(route=>{
+  {t(size.width>0&&routes.map(route=>{
    const from=point(route.fromCell),to=point(route.toCell),dx=to.x-from.x,dy=to.y-from.y,length=Math.hypot(dx,dy);
    // Leave labels and icons clear; both endpoints are still computed from their true cell centres.
    const inset=Math.min(width,height)*.43;
@@ -33,13 +35,13 @@ export function NetworkRoutes({routes}:{routes:VisibleRoute[]}){
     <line className="route-underlay" x1={x1} y1={y1} x2={x2} y2={y2}/>
     <line className="route-stroke" x1={x1} y1={y1} x2={x2} y2={y2} markerEnd={route.state==='available'?`url(#${id}-arrow)`:undefined}/>
    </g>;
-  })}
+  }))}
  </svg>;
 }
 
 export function NetworkRouteLegend({id,hint,routes}:{id:string;hint:string;routes:VisibleRoute[]}){
  return <div id={id} className="network-route-legend">
-  <span title={hint}>{hint}</span>
-  <span className="network-route-accessible">{routes.map(routeDescription).join(' ')}</span>
+  <span title={t(hint)}>{t(hint)}</span>
+  <span className="network-route-accessible">{t(routes.map(routeDescription).join(' '))}</span>
  </div>;
 }
