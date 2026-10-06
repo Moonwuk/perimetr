@@ -2,7 +2,7 @@
 import {t} from '@/lib/game/translate';
 
 import {useRef,useState,type ReactNode} from 'react';
-import {CircleHelp,Coins,Flag,Info,LoaderCircle,Menu,Network,Pause,Play,Radio,ScanLine,Shield,Shuffle,Wifi,X,Zap} from 'lucide-react';
+import {CircleHelp,Coins,Flag,Info,List,LoaderCircle,Menu,Network,Pause,Play,Radio,ScanLine,Shield,Shuffle,Wifi,X,Zap} from 'lucide-react';
 import {GridBoard,actionFor,type Selection} from './board';
 import {Hand} from './hand';
 import {NodeActions} from './node-actions';
@@ -121,6 +121,16 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
 
    <span className="company-progress" style={{width:`${Math.min(100,me.money/MONEY_GOAL*100)}%`}}/>
   </section>
+
+  <aside className="desktop-match-controls" aria-label={t("Управление матчем")}>
+   <button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label={t("Подготовить секретное дежурство")}><Shield size={21}/><span>{t(me.reserve?'Дежурство готово':'Дежурство')}</span></button>
+   <button className={side==='enemy'&&!card?'active':''} onClick={()=>{onClear();onSide('enemy');}} aria-label={t("Разведка без карты: 1 действие, 0 кредитов")} aria-pressed={side==='enemy'&&!card}><ScanLine size={21}/><span>{t("Разведка")}</span><small>{t("1 ОД")}</small></button>
+   <div className="desktop-controls-divider"/>
+   <button onClick={()=>onDetails('log')} aria-label={t("Журнал матча")}><List size={21}/><span>{t("Журнал")}</span></button>
+   <button onClick={()=>onDetails('guide')} aria-label={t("Как сделать ход")}><CircleHelp size={21}/><span>{t("Помощь")}</span></button>
+   <button onClick={()=>onDetails('menu')} aria-label={t("Меню матча")}><Menu size={21}/><span>{t("Меню матча")}</span></button>
+   {t(online&&<><div className="desktop-controls-divider"/><button onClick={onPause??(()=>onDetails('room'))} disabled={busy||!!view.pause}><Pause size={21}/><span>{t("Пауза")}</span></button><button className={`connection-icon ${connection==='Подключено'?'connected':'disconnected'}`} onClick={()=>onDetails('room')} aria-label={t(`Комната: ${connection}. ${opponentStatus}`)}><Wifi size={21}/><span>{t("Комната и связь")}</span></button></>)}
+  </aside>
 
   <section className="table-hand" aria-label={t("Ваша рука")}>
    <Hand compact view={view} selected={card} busy={busy} onSelect={onCard} category={category} onCategoryChange={onCategory} onDraw={()=>onAction({type:'draw'})} drag={dragControls} dragged={drag?.card}/>
