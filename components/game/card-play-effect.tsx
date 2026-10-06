@@ -1,4 +1,6 @@
 'use client';
+import {t} from '@/lib/game/translate';
+
 
 import {useCallback,useLayoutEffect,useRef,useState,type CSSProperties} from 'react';
 import {createPortal} from 'react-dom';
@@ -90,6 +92,6 @@ export function CardPlayEffect({effect}:{effect:PlayEffect|null}){
   <svg className="card-play-trail" width="100%" height="100%"><path d={`M ${source.x} ${source.y} Q ${mid.x} ${mid.y} ${target.x} ${target.y}`} pathLength="1"/></svg>
   <div className="card-play-flight"><CardFace id={effect.card} variant="compact" decorative/></div>
   <div className="card-play-impact"><span className="card-play-ring"/><span className="card-play-spark one"/><span className="card-play-spark two"/><span className="card-play-spark three"/><span className="card-play-spark four"/><Icon className="card-play-symbol" size={29}/></div>
-  <div className="card-play-result"><span><Check size={11}/>{CARDS[effect.card].name}</span><strong>{effect.label}</strong></div>
+  <div className="card-play-result"><span><Check size={11}/>{t(CARDS[effect.card].name)}</span><strong>{t(effect.label)}</strong></div>
  </div>,document.body);
 }

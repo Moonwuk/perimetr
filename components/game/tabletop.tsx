@@ -1,8 +1,12 @@
 'use client';
+import {t} from '@/lib/game/translate';
+
 import {useRef,useState,type ReactNode} from 'react';
-import {CircleHelp,Coins,Flag,Info,LoaderCircle,Menu,Network,Play,Radio,ScanLine,Shield,Shuffle,Wifi,X,Zap} from 'lucide-react';
+import {CircleHelp,Coins,Flag,Info,LoaderCircle,Menu,Network,Pause,Play,Radio,ScanLine,Shield,Shuffle,Wifi,X,Zap} from 'lucide-react';
 import {GridBoard,actionFor,type Selection} from './board';
 import {Hand} from './hand';
+import {NodeActions} from './node-actions';
+import {LanguageSwitch} from './language-switch';
 import {CardFace} from './card-face';
 import type {CardPlayOrigin} from './card-play-effect';
 import {useCardDrag,type CardDragPoint as DragPoint} from './use-card-drag';
@@ -15,7 +19,7 @@ type Props={
  feedback?:ReactNode;hasFeedback?:boolean;recovery?:ReactNode;
  onCard:(card:CardId)=>void;onCell:(selection:Selection)=>void;onSide:(side:Side)=>void;
  onCategory:(kind:CardKind|'all')=>void;onAction:(action:Action,origin?:CardPlayOrigin)=>void;onEnd:()=>void;
- onDetails:(detail:TableDetail)=>void;onClear:()=>void;
+ onDetails:(detail:TableDetail)=>void;onClear:()=>void;onPause?:()=>void;
 };
 
 type CardDragState={card:CardId;point:DragPoint;startedAt:number;target:Selection|null;globalZone:boolean};
@@ -27,7 +31,7 @@ function dropAt(table:HTMLElement|null,id:CardId,point:DragPoint){
  return {target:cell&&(side==='own'||side==='enemy')&&Number.isInteger(index)&&index>=0&&index<25?{cell:index,side} as Selection:null,globalZone:false};
 }
 
-export function DuelTable({view,card,selection,side,category,busy,online,connection,opponentStatus,feedback,hasFeedback,recovery,onCard,onCell,onSide,onCategory,onAction,onEnd,onDetails,onClear}:Props){
+export function DuelTable({view,card,selection,side,category,busy,online,connection,opponentStatus,feedback,hasFeedback,recovery,onCard,onCell,onSide,onCategory,onAction,onEnd,onDetails,onClear,onPause}:Props){
  const me=view.players[view.viewer],enemy=view.players[1-view.viewer],myTurn=view.status==='playing'&&view.turn===view.viewer&&!view.pause?.pausedAt;
  const tableRef=useRef<HTMLElement>(null),dragRef=useRef<CardDragState|null>(null);
  const [drag,setDrag]=useState<CardDragState|null>(null);
@@ -61,65 +65,71 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
  const canExchange=!!card&&myTurn&&!busy&&(me.exchangeRound??0)!==view.round&&!!me.exchangeOptions[card]?.length;
  const threats=Object.values(me.nodes).filter(n=>n?.detected).length;
  const summary=commandStatus?(commandStatus.ok?commandStatus.preview:commandStatus.reason):myTurn?(view.ap===0?'Действия закончились. Передайте ход сопернику.':card?'Выберите подсвеченную цель. Деньги спишутся после «Сыграть».':side==='enemy'?'Клетка → «Разведать»: 0 кредитов, 1 действие.':'Нажмите узел: расследование, очистка и ремонт без карт.'):'Можно осмотреть поле и карты. Действия доступны в ваш ход.';
- return <main ref={tableRef} className={`tabletop ${drag?'card-is-dragging':''}`} aria-label="Игровой стол">
-  <header className="table-toolbar">
-   <button className="table-icon" onClick={()=>onDetails('menu')} aria-label="Меню матча"><Menu size={20}/></button>
-   <span className="table-round">Раунд <b>{view.round}</b><small>/{MAX_ROUNDS}</small></span>
-   <strong className={myTurn?'your-turn':''}>{view.status==='finished'?'Матч завершён':view.pause?.pausedAt?'Пауза':myTurn?'Ваш ход':'Ход соперника'}</strong>
-   <button className="table-icon" onClick={()=>onDetails('guide')} aria-label="Как сделать ход"><CircleHelp size={19}/></button>
-   {online?<button className={`table-icon connection-icon ${connection==='Подключено'?'connected':'disconnected'}`} onClick={()=>onDetails('room')} aria-label={`Комната: ${connection}. ${opponentStatus}`}><Wifi size={18}/></button>:<button className="table-icon" onClick={()=>onDetails('log')} aria-label="Журнал матча"><Radio size={18}/></button>}
+ return <main ref={tableRef} className={`tabletop ${!card&&node&&selection?.side==='own'?'has-node-actions':''} ${drag?'card-is-dragging':''}`} aria-label={t("Игровой стол")}>
+  <header className="table-toolbar"><span className="table-brand"><Network size={26}/>{t("КОНТУР")}</span>
+   <button className="table-icon" onClick={()=>onDetails('menu')} aria-label={t("Меню матча")}><Menu size={20}/></button>
+   <span className="table-round">{t("Раунд ")}<b>{t(view.round)}</b><small>/{t(MAX_ROUNDS)}</small></span>
+   <strong className={myTurn?'your-turn':''}>{t(view.status==='finished'?'Матч завершён':view.pause?.pausedAt?'Пауза':myTurn?'Ваш ход':'Ход соперника')}</strong>
+   <LanguageSwitch/>{t(online&&<button className="table-pause" onClick={onPause??(()=>onDetails('room'))} disabled={busy||!!view.pause}><Pause size={16}/><span>{t("Пауза")}</span></button>)}<button className="table-icon" onClick={()=>onDetails('guide')} aria-label={t("Как сделать ход")}><CircleHelp size={19}/></button>
+   {t(online?<button className={`table-icon connection-icon ${connection==='Подключено'?'connected':'disconnected'}`} onClick={()=>onDetails('room')} aria-label={t(`Комната: ${connection}. ${opponentStatus}`)}><Wifi size={18}/></button>:<button className="table-icon" onClick={()=>onDetails('log')} aria-label={t("Журнал матча")}><Radio size={18}/></button>)}
   </header>
 
-  <section className={`table-company table-enemy ${side==='enemy'?'viewing':''}`} aria-label="Компания соперника">
-   <button className="company-switch" aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')} aria-label="Показать поле соперника">
+  <section className={`table-company table-enemy ${side==='enemy'?'viewing':''}`} aria-label={t("Компания соперника")}>
+   <button className="company-switch" aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')} aria-label={t("Показать поле соперника")}>
     <span className="company-emblem"><Network size={22}/></span>
-    <span className="company-name"><small>СОПЕРНИК{enemy.reserve?' · ДЕЖУРСТВО ?':''}</small><strong>{enemy.name}</strong></span>
+    <span className="company-name"><small>{t("СОПЕРНИК")}<span className="mobile-reserve-hint">{t(enemy.reserve?' · ДЕЖУРСТВО ?':'')}</span></small><strong>{enemy.name}</strong></span>
    </button>
-   <span className="table-money" aria-label={`У соперника ${enemy.money} из ${MONEY_GOAL} кредитов`}><Coins size={15}/><b>{enemy.money}</b><small>/ {MONEY_GOAL}</small></span>
-   <span className="company-progress" style={{width:`${Math.min(100,enemy.money/MONEY_GOAL*100)}%`}}/>
+   <span className="table-money" aria-label={t(`У соперника ${enemy.money} из ${MONEY_GOAL} кредитов`)}><Coins size={15}/><b>{t(enemy.money)}</b><small>/ {t(MONEY_GOAL)}</small></span>
+   <span className="company-progress" style={{width:`${Math.min(100,enemy.money/MONEY_GOAL*100)}%`}}/><div className="desktop-opponent-state"><p>{t((online?opponentStatus:null)||(myTurn?'Ожидает вашего хода':'Ход соперника'))}</p>{t(enemy.reserve&&<p><Shield size={16}/>{t("Дежурство подготовлено ")}<CircleHelp size={16}/></p>)}</div>
   </section>
 
-  <section className={`table-stage ${side==='own'?'own-stage':'enemy-stage'}`} aria-label={side==='own'?'Ваше поле':'Поле соперника'}>
+  <section className={`table-stage ${side==='own'?'own-stage':'enemy-stage'} ${card?'has-target-hint':''}`} aria-label={t(side==='own'?'Ваше поле':'Поле соперника')}>
    <div className="table-field-heading">
-    <div className="field-switch" role="group" aria-label="Какое поле показать"><button aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')}><ScanLine size={14}/>Соперник</button><button aria-pressed={side==='own'} onClick={()=>onSide('own')}><Shield size={14}/>Моя сеть{threats>0&&<b>{threats}</b>}</button></div>
-    {side==='enemy'?<button className={!card?'active':''} onClick={onClear} aria-label="Разведка без карты: 1 действие, 0 кредитов" aria-pressed={!card}>Скан <small>1 <Zap size={11}/></small></button>:<button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label="Подготовить секретное дежурство"><Shield size={14}/>{me.reserve?'Готово':'Дежурство'}</button>}
+    <div className="field-switch" role="group" aria-label={t("Какое поле показать")}><button aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')}><ScanLine size={14}/>{t("Соперник")}</button><button aria-pressed={side==='own'} onClick={()=>onSide('own')}><Shield size={14}/>{t("Моя сеть")}{t(threats>0&&<b>{t(threats)}</b>)}</button></div>
+    {t(side==='enemy'?<button className={!card?'active':''} onClick={onClear} aria-label={t("Разведка без карты: 1 действие, 0 кредитов")} aria-pressed={!card}>{t("Скан ")}<small>1 <Zap size={11}/></small></button>:<button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label={t("Подготовить секретное дежурство")}><Shield size={14}/>{t(me.reserve?'Готово':'Дежурство')}</button>)}
    </div>
-   <div className="table-recovery">{recovery}</div>
-   <div className="table-field"><GridBoard view={view} side={side} selected={drag?drag.target:selection} card={card} onSelect={onCell} drop={drag?.target?{selection:drag.target,valid:!!dragStatus?.ok}:null}/></div>
-   {card?<p className="table-field-tip">{CARDS[card].name}{CARDS[card].side==='none'?' · без выбора цели':fieldSelection?' · '+coordinate(fieldSelection.cell):' · выберите цель'}</p>:<button className="table-field-tip" onClick={()=>onDetails('guide')}>{side==='own'?'Узел → действия без карт · щит → защита всей сети':'? — скрытая клетка · разведайте, чтобы найти узлы'}</button>}
+   <div className="table-recovery">{t(recovery)}</div>
+   <div className="table-boards">{t((['own','enemy'] as const).map(boardSide=><section key={boardSide} className={`table-board-panel board-${boardSide} ${side===boardSide?'active-board':''}`} aria-label={t(boardSide==='own'?'Ваша сеть':'Сеть соперника')}>
+    <div className="desktop-board-heading"><span>{t(boardSide==='own'?<Shield size={21}/>:<Network size={21}/>)} {t(boardSide==='own'?'Ваша сеть':'Сеть соперника')}</span>{t(boardSide==='own'?<button onClick={()=>onDetails('reserve')}><Shield size={14}/>{t(me.reserve?'Дежурство готово':'Дежурство')}</button>:<button onClick={()=>{onClear();onSide('enemy');}}><ScanLine size={14}/>{t("Разведка")}</button>)}</div>
+    <div className="table-field"><GridBoard view={view} side={boardSide} selected={fieldSelection} card={card} onSelect={onCell} drop={drag?.target?{selection:drag.target,valid:!!dragStatus?.ok}:null}/></div>
+   </section>))}</div>
+   <p className="table-field-tip">{t(card?`${CARDS[card].name} · ${CARDS[card].side==='none'?'без выбора цели':fieldSelection?coordinate(fieldSelection.cell):'выберите цель'}`:node&&selection?`${selection.side==='own'?'Выбран ваш узел':'Выбрана цель'} · ${coordinate(selection.cell)}`:'Выберите карту или узел')}</p>
   </section>
 
-  <section data-card-dropzone="own" className={`table-company table-own ${side==='own'?'viewing':''} ${drag&&CARDS[drag.card].side==='none'?'global-drop-zone':''} ${drag?.globalZone?(dragStatus?.ok?'global-drop-ready':'global-drop-rejected'):''}`} aria-label="Ваша компания">
-   <button className="company-switch" aria-pressed={side==='own'} onClick={()=>onSide('own')} aria-label="Показать своё поле">
-    <span className="company-emblem"><Shield size={22}/>{threats>0&&<b className="company-threat">{threats}</b>}</span>
-    <span className="company-name"><small>ВЫ</small><strong>{drag&&CARDS[drag.card].side==='none'?'Бросьте карту сюда':me.reserve?'Под защитой':'Моя сеть'}</strong></span>
+  <section data-card-dropzone="own" className={`table-company table-own ${side==='own'?'viewing':''} ${drag&&CARDS[drag.card].side==='none'?'global-drop-zone':''} ${drag?.globalZone?(dragStatus?.ok?'global-drop-ready':'global-drop-rejected'):''}`} aria-label={t("Ваша компания")}>
+   <button className="company-switch" aria-pressed={side==='own'} onClick={()=>onSide('own')} aria-label={t("Показать своё поле")}>
+    <span className="company-emblem"><Shield size={22}/>{t(threats>0&&<b className="company-threat">{t(threats)}</b>)}</span>
+    <span className="company-name"><small>{t("ВЫ")}</small><strong>{t(drag&&CARDS[drag.card].side==='none'?'Бросьте карту сюда':me.reserve?'Под защитой':'Моя сеть')}</strong></span>
    </button>
-   <button className="table-money" onClick={()=>onDetails('finance')} aria-label={`Финансы: ${me.money} из ${MONEY_GOAL} кредитов, доход ${incomeOf(me)}`}><span><Coins size={15}/><b>{me.money}</b></span><small>+{incomeOf(me)} / раунд</small></button>
-   <div className={`table-ap ${myTurn?'active':''}`} aria-label={myTurn?`Осталось ${view.ap} из 3 действий`:'Ожидание своего хода'}><span><Zap size={15}/><b>{myTurn?view.ap:0}</b><small>/3</small></span><small>действия</small></div>
-   <button className="table-end" disabled={!myTurn||busy} onClick={onEnd} aria-label="Закончить ход"><Flag size={15}/><span>Конец<br/>хода</span></button>
+   <button className="table-money" onClick={()=>onDetails('finance')} aria-label={t(`Финансы: ${me.money} из ${MONEY_GOAL} кредитов, доход ${incomeOf(me)}`)}><span><Coins size={15}/><b>{t(me.money)}</b><small className="desktop-money-goal">/ {MONEY_GOAL}</small></span><small>+{t(incomeOf(me))}{t(" / раунд")}</small></button>
+   <div className={`table-ap ${myTurn?'active':''}`} aria-label={t(myTurn?`Осталось ${view.ap} из 3 действий`:'Ожидание своего хода')}><span><Zap size={15}/><b>{t(myTurn?view.ap:0)}</b><small>/3</small></span><small>{t("действия")}</small></div>
+
    <span className="company-progress" style={{width:`${Math.min(100,me.money/MONEY_GOAL*100)}%`}}/>
   </section>
 
-  <section className="table-hand" aria-label="Ваша рука">
+  <section className="table-hand" aria-label={t("Ваша рука")}>
    <Hand compact view={view} selected={card} busy={busy} onSelect={onCard} category={category} onCategoryChange={onCategory} onDraw={()=>onAction({type:'draw'})} drag={dragControls} dragged={drag?.card}/>
   </section>
 
-  <section className="table-command" aria-label="Выбранное действие" aria-live="polite">
-   {card?<div className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`}>
-    <div className="table-card-heading"><strong title={CARDS[card].name}>{CARDS[card].name}</strong><button className="table-card-info" onClick={()=>onDetails('card')} aria-label={`О карте «${CARDS[card].name}»`}><Info size={12}/>О карте</button></div>
-    <span>{drag?(dragStatus?.ok?dragStatus.preview:dragLabel):summary}</span>
-   </div>:!selection&&hasFeedback?feedback:<button className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`} onClick={()=>onDetails(node?'node':'guide')} aria-label={node?'Подробнее об узле':'Как выбрать действие'}>
-    <strong>{selection?`${coordinate(selection.cell)} · ${node?.name??'Разведка'}`:'Выберите карту · затем цель'}<Info size={14}/></strong>
-    <span>{drag?(dragStatus?.ok?dragStatus.preview:dragLabel):summary}</span>
-   </button>}
-   {card&&<button className="table-icon table-exchange" disabled={!canExchange} onClick={()=>onDetails('exchange')} aria-label={(me.exchangeRound??0)===view.round?'Замена уже использована':'Бесплатно заменить карту'} title="Бесплатно заменить карту"><Shuffle size={18}/><small>{(me.exchangeRound??0)===view.round?'0/1':'1/1'}</small></button>}
-   {(card||selection)&&<button className="table-icon table-clear" aria-label="Отменить выбор" onClick={onClear}><X size={18}/></button>}
-   {action&&<button className="table-play" disabled={!!drag||!myTurn||busy||!status?.ok} onClick={()=>onAction(action)} aria-label={card?`Сыграть «${CARDS[card].name}» за ${CARDS[card].money} кредитов и ${CARDS[card].cost} ${CARDS[card].cost===1?'действие':'действия'}`:'Разведать за 1 действие'}>{busy?<LoaderCircle className="spin" size={16}/>:!card&&<Play size={15}/>}<span>{busy?'Ход…':card?'Сыграть':'Разведать'}{card&&!busy&&<small>{CARDS[card].money} ¤ · {CARDS[card].cost} ОД</small>}</span></button>}
+  <section className="table-command" aria-label={t("Выбранное действие")} aria-live="polite">
+   {t(!card&&node&&selection?.side==='own'?<NodeActions view={view} node={node.id} coordinate={coordinate(selection.cell)} busy={busy} onAction={onAction} onClear={onClear} onDetails={()=>onDetails('node')}/>:<>
+   {t(card?<div className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`}>
+    <div className="table-card-heading"><strong title={t(CARDS[card].name)}>{t(CARDS[card].name)}</strong><button className="table-card-info" onClick={()=>onDetails('card')} aria-label={t(`О карте «${CARDS[card].name}»`)}><Info size={12}/>{t("О карте")}</button></div>
+    <span>{t(drag?(dragStatus?.ok?dragStatus.preview:dragLabel):summary)}</span>
+   </div>:!selection&&hasFeedback?feedback:<button className={`table-selection ${commandStatus&&!commandStatus.ok?'blocked':''}`} onClick={()=>onDetails(node?'node':'guide')} aria-label={t(node?'Подробнее об узле':'Как выбрать действие')}>
+    <strong>{t(selection?`${coordinate(selection.cell)} · ${node?.name??'Разведка'}`:'Выберите карту · затем цель')}<Info size={14}/></strong>
+    <span>{t(drag?(dragStatus?.ok?dragStatus.preview:dragLabel):summary)}</span>
+   </button>)}
+   {t(card&&<button className="table-icon table-exchange" disabled={!canExchange} onClick={()=>onDetails('exchange')} aria-label={t((me.exchangeRound??0)===view.round?'Замена уже использована':'Бесплатно заменить карту')} title={t("Бесплатно заменить карту")}><Shuffle size={18}/><small>{t((me.exchangeRound??0)===view.round?'0/1':'1/1')}</small></button>)}
+   {t((card||selection)&&<button className="table-icon table-clear" aria-label={t("Отменить выбор")} onClick={onClear}><X size={18}/></button>)}
+   {t(action&&<button className="table-play" disabled={!!drag||!myTurn||busy||!status?.ok} onClick={()=>onAction(action)} aria-label={t(card?`Сыграть «${CARDS[card].name}» за ${CARDS[card].money} кредитов и ${CARDS[card].cost} ${CARDS[card].cost===1?'действие':'действия'}`:'Разведать за 1 действие')}>{t(busy?<LoaderCircle className="spin" size={16}/>:!card&&<Play size={15}/>)}<span>{t(busy?'Ход…':card?'Сыграть':'Разведать')}{t(card&&!busy&&<small>{t(CARDS[card].money)} ¤ · {t(CARDS[card].cost)}{t(" ОД")}</small>)}</span></button>)}
+   </>)}
   </section>
-  {drag&&<div className={`card-drag-layer ${dragStatus?.ok?'can-drop':''}`} aria-hidden="true">
+  <div className="table-end-controls"><button className="table-details" onClick={()=>onDetails(card?'card':'log')}><Info size={17}/><span>{t(card?'О карте':'Журнал')}</span></button><button className="table-end" disabled={!myTurn||busy} onClick={onEnd} aria-label={t("Закончить ход")}><Flag size={18}/><span>{t("Конец хода")}</span></button></div>
+  {t(drag&&<div className={`card-drag-layer ${dragStatus?.ok?'can-drop':''}`} aria-hidden="true">
    <div className="card-drag-ghost" style={{left:Math.max(64,Math.min(drag.point.x,window.innerWidth-64)),top:Math.max(6,drag.point.y-168)}}><CardFace id={drag.card} variant="compact" decorative/></div>
    <span className="card-drag-aim" style={{left:drag.point.x,top:drag.point.y}}/>
-   <div className="card-drag-hint"><strong>{dragLabel}</strong><span>{CARDS[drag.card].money} ¤ · {CARDS[drag.card].cost} ОД · вне цели — отмена</span></div>
-  </div>}
+   <div className="card-drag-hint"><strong>{t(dragLabel)}</strong><span>{t(CARDS[drag.card].money)} ¤ · {t(CARDS[drag.card].cost)}{t(" ОД · вне цели — отмена")}</span></div>
+  </div>)}
  </main>;
 }

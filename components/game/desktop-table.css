@@ -1,0 +1,104 @@
+.desktop-money-goal{display:none}
+/* Shared action dock: immediately visible when a player selects their own node. */
+.table-brand,.desktop-board-heading,.desktop-opponent-state{display:none}
+.table-boards,.table-board-panel{min-width:0;min-height:0;height:100%}
+.table-board-panel:not(.active-board){display:none}
+.table-board-panel .table-field{height:100%}
+.table-end-controls{display:flex;gap:6px;min-width:0}
+.table-details{display:none}
+.table-end-controls .table-end{width:100%;font-size:11px;padding:4px 8px}
+.tabletop{grid-template-columns:minmax(0,1fr) 94px;grid-template-rows:36px 48px minmax(0,1fr) 48px 200px minmax(58px,auto);grid-template-areas:'nav nav' 'enemy enemy' 'field field' 'self end' 'hand hand' 'command command'}
+.table-toolbar{grid-area:nav}.table-enemy{grid-area:enemy}.table-stage{grid-area:field}.table-own{grid-area:self}.table-hand{grid-area:hand}.table-command{grid-area:command}.table-end-controls{grid-area:end}
+.table-command:has(.node-actions){padding-top:0;border:0}
+.node-actions{width:100%;min-width:0;border:1px solid #93bb6a;border-radius:9px;background:#101f24;padding:9px 11px;display:grid;gap:9px}
+.node-actions-heading{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.node-identity{display:flex;gap:12px;align-items:center;flex:1;min-width:0}.node-identity>svg{color:#b9f96a;flex-shrink:0}.node-identity>div{display:grid;gap:5px;min-width:0}.node-identity strong{font-size:16px;line-height:1.25}.node-identity span{font-size:13px;color:#adc4bf;display:flex;align-items:center;gap:5px}.node-identity .node-warning{color:#ffae83}
+.node-action{min-width:0;display:flex;flex-direction:column;gap:5px}.node-action button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:43px;border:1px solid #456674;border-radius:7px;background:#152930;color:#e3eff2;padding:8px 10px;font-size:13px;line-height:1.2;text-align:center}.node-action button>svg{flex-shrink:0}.node-action small{font-size:11px;line-height:1.3;color:#a6bdc5;text-align:center;overflow-wrap:anywhere}.node-action button:disabled{opacity:1;color:#829ba5;background:#182a30;border-color:#324b54;cursor:not-allowed}.node-action-primary{min-width:210px}.node-action-primary button{background:#b9f96a;border-color:#d6ffa1;color:#14281c;font-size:16px;font-weight:650;min-height:48px}.node-action-primary button:disabled{background:#263e2c;color:#91aa93;border-color:#526e50}
+.node-actions-secondary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;border-top:1px solid #314d53;padding-top:9px}.node-actions-note{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.3;color:#acc5d0;min-width:0}.node-actions-note>svg{flex-shrink:0}.node-actions-note>button{margin-left:auto;white-space:nowrap;color:#c8e4bc;border:0;background:none;font-size:11px;padding:3px}
+.table-pause{display:flex;align-items:center;gap:6px;border:1px solid #44606c;background:transparent;color:#bdd4df;padding:6px 8px;border-radius:6px;font-size:12px}.table-pause:disabled{opacity:.5}
+.language-switch{display:flex;align-items:center;gap:1px;border:1px solid #3c535d;border-radius:6px;padding:2px;flex-shrink:0}.language-switch button{background:transparent;color:#a5bec7;border:0;padding:4px 6px;border-radius:4px;font-size:11px;line-height:20px;min-height:28px}.language-switch button[aria-pressed=true]{background:#2d4339;color:#d2f8a9}.language-switch button:focus-visible,.node-action button:focus-visible{outline:2px solid #ccff96;outline-offset:2px}
+@media(max-width:1099px){
+ .table-pause span{display:none}.table-pause{padding:5px}.table-toolbar{gap:4px}.table-toolbar>.table-icon{width:29px}.table-toolbar>strong{font-size:11px}.table-round{font-size:11px}
+ .tabletop.has-node-actions{grid-template-rows:36px 44px minmax(110px,1fr) 44px 170px auto}
+ .node-actions{padding:7px;gap:6px}.node-identity>svg{display:none}.node-identity strong{font-size:12px}.node-identity span{font-size:10px}.node-action-primary{min-width:132px;max-width:50%}.node-action-primary button{min-height:38px;font-size:12px;padding:5px 7px;gap:4px}.node-action small{font-size:9px}.node-actions-heading{gap:5px}.node-actions-heading>.table-icon{width:25px;height:30px}.node-actions-secondary{gap:5px;padding-top:6px}.node-actions-secondary button{font-size:10px;padding:5px 3px;gap:3px;min-height:36px}.node-actions-secondary button>svg{width:13px}.node-actions-note{font-size:9px}.node-actions-note>button{font-size:9px}.node-actions-note>svg{width:12px}.node-actions-note{display:none}
+}
+@media(max-height:650px) and (max-width:1099px){.tabletop{grid-template-rows:30px 39px minmax(0,1fr) 40px 151px 54px}.tabletop.has-node-actions{grid-template-rows:30px 32px minmax(84px,1fr) 36px 132px auto;gap:3px}.has-node-actions .node-actions{gap:3px}.has-node-actions .node-action-primary small{display:none}.has-node-actions .node-action small{line-height:1.1}.has-node-actions .node-actions-secondary{padding-top:4px}.has-node-actions .node-actions-secondary button{min-height:30px}}
+@media(max-height:500px) and (min-aspect-ratio:6/5) and (max-width:1099px){.tabletop,.tabletop.has-node-actions{max-width:none;grid-template-columns:minmax(0,1fr) minmax(300px,1fr) 88px;grid-template-rows:30px 40px minmax(0,1fr) 44px;grid-template-areas:'nav nav nav' 'enemy self end' 'field hand hand' 'field command command';gap:5px}.tabletop.has-node-actions{grid-template-rows:30px 40px minmax(0,1fr) auto}.table-command .table-selection{min-height:40px}.table-hand .compact-hand{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:130px}.tabletop.has-node-actions .table-hand .compact-hand{grid-auto-rows:100px}}
+/* Desktop matches the chosen dual-board concept. The hand alone can scroll. */
+@media(min-width:1100px) and (min-height:501px){
+ .app-shell.table-mode{background:#091a21}
+ .tabletop{--rail:clamp(230px,22vw,370px);max-width:1920px;padding:0 12px 12px;gap:12px;grid-template-columns:var(--rail) minmax(0,1fr) clamp(185px,16.5vw,280px);grid-template-rows:58px 160px minmax(0,1fr) auto;grid-template-areas:'nav nav nav' 'self field enemy' 'hand field enemy' 'hand command end'}
+ .table-toolbar{gap:12px;border-bottom:1px solid #2e4752;margin:0 -12px;padding:0 18px;font-size:14px}.table-brand{display:flex;align-items:center;gap:12px;font-size:26px;font-weight:750;letter-spacing:.04em;color:#b9f96a;width:calc(var(--rail) - 15px)}.table-toolbar>strong{font-size:14px}.table-round b{font-size:16px}.table-toolbar .table-icon{width:34px}.table-pause{font-size:13px;padding:7px 11px}.table-pause span{display:inline}
+ .table-company{display:flex;flex-wrap:wrap;align-content:start;align-items:center;gap:10px 12px;padding:14px;border-radius:9px;background:#10252a;border-color:#304e51}.table-company.viewing{background:#12292b;border-color:#4f765b}.company-switch{flex:0 0 100%;align-self:auto;min-height:42px}.company-emblem{width:43px;height:43px}.company-name small{font-size:11px;letter-spacing:.04em}.company-name strong{font-size:17px}.table-enemy .company-name strong{white-space:normal;overflow-wrap:anywhere}.table-money{font-size:25px}.table-money small{font-size:12px}.table-own button.table-money{align-items:start;flex:1;gap:8px;min-height:58px}.table-own .table-money small{font-size:14px;color:#b9ee82}.table-ap{margin-left:auto;font-size:14px}.table-ap>span{font-size:18px}.table-ap>small{font-size:12px}.company-progress{height:3px}
+ .table-enemy{flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:20px;background:#0c1c25}.table-enemy .company-switch{flex:0 0 auto}.table-enemy .table-money{font-size:25px}.table-enemy .company-progress{position:relative;left:auto;bottom:auto;height:7px;border-radius:4px;min-width:4px;margin-top:-9px}.desktop-opponent-state{display:grid;gap:12px}.desktop-opponent-state p{display:flex;align-items:center;gap:8px;min-height:49px;padding:12px;border:1px solid #3b5c68;border-radius:7px;font-size:13px;line-height:1.45;color:#afd0dd}.desktop-opponent-state p+p{border-style:dashed}
+ .table-stage{grid-template-rows:34px minmax(0,1fr);gap:6px;position:relative;border:1px solid #2c4954;border-radius:9px;background:#0b2028;padding:10px 8px 5px}
+ .table-field-heading{display:none}.table-field-tip{grid-row:1;position:static;display:block!important;text-align:center;padding:0;margin:0;line-height:30px;color:#cce5f0;font-size:16px;font-weight:600;border:0;background:none}
+ .table-boards{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-height:0}
+ .table-board-panel,.table-board-panel:not(.active-board){display:grid;grid-template-rows:44px minmax(0,1fr);min-width:0;border:1px solid #284650;border-radius:7px;overflow:hidden}.table-board-panel .table-field{height:auto}
+ .desktop-board-heading{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;gap:6px;border-bottom:1px solid #2c4851;color:#befa87;font-size:16px;font-weight:600;min-width:0}.desktop-board-heading>span{display:flex;gap:8px;align-items:center}.desktop-board-heading>span>svg{flex-shrink:0}.board-enemy .desktop-board-heading{color:#ffb085}.desktop-board-heading button{display:flex;gap:4px;align-items:center;padding:5px;border:0;background:transparent;color:#a6bec7;font-size:11px;font-weight:400}.desktop-board-heading button:hover{color:#e8ffbc}
+ .table-field .grid-board{max-width:none;max-height:none;width:100%;height:min(100cqh,calc(100cqw + 25px));padding:8px 10px 3px 4px;gap:6px}.table-field .grid-board.network-board{grid-template-rows:18px minmax(0,1fr) 22px}.table-field .grid-axis,.table-field .grid-with-axis{grid-template-columns:18px repeat(5,minmax(0,1fr));gap:5px}.table-field .grid-with-axis{grid-template-columns:18px minmax(0,1fr)}.table-field .grid-axis,.table-field .row-axis{font-size:12px}.table-field .battle-grid{gap:5px}.table-field .grid-cell{border-radius:6px;background:#0b1d26;border-color:#294653;gap:4px}.table-field .grid-cell.fog{background:#0b1d26;border-color:#294653;box-shadow:none;color:#859da8}.table-field .grid-cell.occupied{background:#203824;border-color:#658d50;color:#ccf496}.table-field .enemy-grid .grid-cell.occupied{background:#352c26;border-color:#edab83;color:#ffc59f}.table-field .cell-icon{width:25px;height:25px}.table-field .cell-name{display:block;font-size:12px}.table-field .cell-flags{font-size:10px}.table-field .cell-empty{font-size:20px}.table-field .grid-cell.disconnected{background:#342820;color:#ffb28f;border-color:#ce8161}.table-field .grid-cell.chosen{box-shadow:inset 0 0 0 2px #c0f58d,0 0 8px #a1ef5555;border-color:#cbfb93}.network-route-legend{font-size:10px;padding-left:20px}
+ .table-hand{border:1px solid #304a52;border-radius:9px;background:#0b1d26;padding:8px;min-height:0}.table-hand>[data-slot=tabs]{grid-template-rows:30px minmax(0,1fr);gap:5px}.table-hand .hand-tabs{gap:1px}.table-hand .hand-tabs [data-slot=tabs-trigger]{font-size:11px!important}.table-hand .compact-hand{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:clamp(172px,calc((100dvh - 288px)/3),228px);align-content:start;gap:12px 10px;padding:6px 4px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#435d55 transparent;scroll-snap-type:y proximity}.table-hand .hand-card{width:100%;height:100%;min-width:0;scroll-snap-align:start}.table-hand .hand-draw{order:2;min-height:0;width:100%;font-size:15px;gap:12px}.hand-draw>span{font-size:15px}.hand-draw>b{font-size:14px}
+ .table-command{border:1px solid #46664c;border-radius:9px;background:#0d2026;padding:12px;min-height:92px;max-height:38dvh;overflow-y:auto;gap:8px;align-items:center}.table-command:has(.node-actions){padding:0;border:0;max-height:40dvh}.table-command .table-selection>strong,.table-command .table-card-heading>strong{font-size:17px;line-height:1.3}.table-command .table-selection>span{font-size:13px;line-height:1.45;-webkit-line-clamp:3}.table-command .table-card-info{font-size:12px}.table-command .table-play{min-height:48px;height:auto;min-width:110px;font-size:15px;padding:10px 14px}.table-command .table-play small{font-size:12px}.table-command>.turn-feedback{max-height:none}.table-end-controls{align-self:end;gap:8px;min-height:65px}.table-details{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:1px solid #486673;border-radius:8px;background:#0f242e;color:#b8d5df;padding:10px 12px;font-size:12px}.table-end-controls .table-end{background:#132b36;color:#c5e6f3;border:1px solid #5a7e90;font-size:16px;gap:8px;line-height:1.2;min-height:65px}.table-end:disabled{opacity:.5}
+ .table-recovery{top:50px;left:14px;right:14px}.table-mode .toast-message{top:66px}
+}
+@media(min-width:1100px) and (max-width:1399px){.desktop-board-heading{font-size:13px;padding:6px}.desktop-board-heading>span{gap:4px}.desktop-board-heading button{font-size:0;gap:0}.desktop-board-heading button svg{width:17px;height:17px}.node-action-primary{min-width:172px}.node-action-primary button{font-size:14px}.node-identity strong{font-size:14px}.node-actions-secondary button{font-size:11px;gap:4px;padding:7px 4px}.node-action small{font-size:10px}.node-actions-note{font-size:10px}.node-identity>svg{display:none}}
+@media(min-width:1100px) and (min-height:501px){
+ .table-hand .hand-card.comic-hand-card{width:100%;min-width:0;height:100%;max-height:none;flex-basis:auto;margin:0;padding:0}
+ .table-hand .compact-hand{align-items:stretch;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .table-hand .hand-draw{width:100%;min-width:0;height:100%;max-height:none;flex-basis:auto}
+ .table-end-controls .table-end{width:auto;min-width:0;flex:1;padding:8px}.table-end-controls .table-details{flex-shrink:0}
+ .table-own .company-name strong{font-size:17px}
+ .table-field .grid-board{align-self:start;margin-top:8px}
+ .table-field .cell-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(9px,1vw,12px)}
+ .table-hand .card-face.compact .card-face-prices{font-size:clamp(13px,9cqi,21px)}
+}
+.cell-status:empty{display:none}.cell-status{font-size:9px;line-height:1.1;color:#ffb292}.grid-cell.disconnected .cell-flags{display:none}
+@media(min-width:1100px) and (min-height:501px){
+ .table-hand .compact-hand{grid-auto-rows:max(154px,calc((100% - 24px)/3))}
+ .table-field .cell-status{font-size:11px}
+ .table-hand .card-face.compact .card-face-title{font-size:clamp(13px,10cqi,20px);min-height:29px}
+ .table-hand .card-face.compact .card-face-title.long-title{font-size:clamp(12px,9cqi,17px)}
+ .table-hand .card-face.compact .card-face-prices{font-size:clamp(16px,12cqi,25px)}
+ .table-hand .card-face.compact .card-face-kind{font-size:clamp(11px,8cqi,15px)}
+ .table-own .table-money .desktop-money-goal{display:inline;font-size:13px;color:#adc1c5;padding-left:4px}
+ .mobile-reserve-hint{display:none}
+}
+@media(min-width:1400px) and (min-height:700px){
+ .table-brand{font-size:30px}.table-round,.table-toolbar>strong{font-size:17px}.table-round b{font-size:19px}.table-round small{font-size:13px}.table-pause{font-size:15px}
+ .company-name small{font-size:14px}.table-own .company-name strong,.table-enemy .company-name strong{font-size:21px}.table-money,.table-enemy .table-money{font-size:32px}.table-money small{font-size:14px}.table-own .table-money small{font-size:17px}.table-ap b{font-size:22px}.table-ap small{font-size:12px}.desktop-opponent-state p{font-size:16px;min-height:58px}.table-field-tip{font-size:22px}.desktop-board-heading{font-size:20px}.table-field .cell-name{font-size:15px}.table-field .cell-icon{width:29px;height:29px}.table-field .grid-axis,.table-field .row-axis{font-size:14px}
+ .node-actions{padding:12px 14px;gap:12px}.node-identity strong{font-size:22px}.node-identity span{font-size:17px}.node-identity>svg{width:36px;height:36px}.node-action-primary{min-width:270px}.node-action-primary button{font-size:20px;min-height:56px}.node-action small{font-size:13px}.node-actions-secondary button{font-size:17px;min-height:50px}.node-actions-note,.node-actions-note>button{font-size:13px}.table-end-controls .table-end{font-size:20px}
+}
+
+@media(max-width:1099px) and (max-height:650px) and (max-aspect-ratio:6/5){
+ .has-node-actions .node-actions-secondary .node-action:has(button:not(:disabled)) small{display:none}
+ .has-node-actions .node-identity span{font-size:9px}
+ .has-node-actions .card-face.compact .card-face-content{padding:4% 6%;grid-template-rows:auto 22px minmax(0,1fr) auto}
+ .has-node-actions .card-face.compact .card-face-title{min-height:22px;font-size:10px}
+ .has-node-actions .card-face.compact .card-face-prices{font-size:13px}
+ .has-node-actions .card-face.compact .card-face-kind{font-size:9px;min-height:16px}
+}
+/* A short portrait phone scrolls its board instead of shrinking targets to dots. */
+@media(max-width:600px) and (max-height:650px) and (max-aspect-ratio:6/5){
+ .table-field{overflow-y:auto;overscroll-behavior:contain;display:block}
+ .table-field .grid-board{width:100%;height:264px;max-width:none;max-height:none}
+ .table-field .cell-icon{width:18px;height:18px}
+}
+@media(min-width:1100px) and (min-height:501px) and (max-height:800px){
+ .table-field .grid-cell{gap:0;padding:2px}
+ .table-field .cell-icon{width:18px;height:18px}
+ .table-field .cell-name{font-size:10px;line-height:11px}
+ .table-field .cell-flags,.table-field .cell-status{font-size:8px;line-height:9px}
+ .table-field .cell-flags svg{width:9px;height:9px}
+ .node-actions{gap:7px;padding:8px 10px}
+ .node-action button{min-height:38px}.node-action-primary button{min-height:44px}
+}
+
+/* Keep phone space for the board; permanent legends live in the game guide. */
+@media(max-width:1099px){
+ .table-stage{grid-template-rows:34px minmax(0,1fr)}
+ .table-stage:not(.has-target-hint) .table-field-tip{display:none}
+ .table-stage.has-target-hint{grid-template-rows:34px minmax(0,1fr) 18px}
+ .table-stage.has-target-hint .table-field-tip{display:block}
+ .table-field .grid-board.network-board{grid-template-rows:15px minmax(0,1fr)}
+ .table-field .network-route-legend{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+}

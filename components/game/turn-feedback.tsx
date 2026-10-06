@@ -1,4 +1,6 @@
 'use client';
+import {t} from '@/lib/game/translate';
+
 
 import {useState} from 'react';
 import {ChevronDown,ChevronUp,ClipboardList,X} from 'lucide-react';
@@ -55,25 +57,25 @@ export function TurnFeedback({summary,result}:{summary:TurnSummary|null;result:A
  const detailsId=`turn-feedback-${id.replaceAll(':','-')}`;
  const cost=result?`${result.spent} ¤ · ${result.apSpent} ОД`:`+${summary!.expectedIncome} ¤ ожидается`;
  const toggle=()=>{setDismissedId('');setExpandedId(expanded?'':id);};
- return <section className={`turn-feedback ${result?.kind??'normal'} ${dismissed?'is-dismissed':''}`} aria-label="Итог действий" data-turn-feedback={result?'action':'turn'}>
+ return <section className={`turn-feedback ${result?.kind??'normal'} ${dismissed?'is-dismissed':''}`} aria-label={t("Итог действий")} data-turn-feedback={result?'action':'turn'}>
   <div className="turn-feedback-heading">
    <button type="button" className="turn-feedback-open" onClick={toggle} aria-expanded={expanded&&!dismissed} aria-controls={detailsId}>
     <ClipboardList size={15} aria-hidden="true"/>
-    <span><strong>{dismissed?result?'Итог последнего действия':'Что изменилось':title}</strong>{!dismissed&&<small>{cost}</small>}</span>
-    {expanded&&!dismissed?<ChevronUp size={15} aria-hidden="true"/>:<ChevronDown size={15} aria-hidden="true"/>}
+    <span><strong>{t(dismissed?result?'Итог последнего действия':'Что изменилось':title)}</strong>{t(!dismissed&&<small>{t(cost)}</small>)}</span>
+    {t(expanded&&!dismissed?<ChevronUp size={15} aria-hidden="true"/>:<ChevronDown size={15} aria-hidden="true"/>)}
    </button>
-   {!dismissed&&<button type="button" className="turn-feedback-dismiss" onClick={()=>{setDismissedId(id);setExpandedId('');}} aria-label="Свернуть итог действий"><X size={15}/></button>}
+   {t(!dismissed&&<button type="button" className="turn-feedback-dismiss" onClick={()=>{setDismissedId(id);setExpandedId('');}} aria-label={t("Свернуть итог действий")}><X size={15}/></button>)}
   </div>
-  {!dismissed&&!expanded&&<p className="turn-feedback-short" role="status">{short}</p>}
+  {t(!dismissed&&!expanded&&<p className="turn-feedback-short" role="status">{t(short)}</p>)}
   <div id={detailsId} className="turn-feedback-details" hidden={!expanded||dismissed}>
-   {result&&<ul>{result.lines.map((line,index)=><li key={index}>{line}</li>)}</ul>}
-   {summary&&<div className="turn-feedback-turn"><strong>{result?'К началу вашего хода':'Ваша сеть'}</strong>
-    <ul>{summary.changes.map((line,index)=><li key={index}>{line}</li>)}</ul>
-    {summary.problems.length>0&&<div className="turn-feedback-problems" aria-label="Известные проблемы">{summary.problems.map(problem=><span key={problem}>{problem}</span>)}</div>}
-    <p>Ожидаемое начисление: <b>+{summary.expectedIncome} ¤</b> в конце раунда, если ничего не изменится.</p>
-    {summary.nextRoundIncome!==summary.expectedIncome&&<p>В следующем полном раунде: <b>+{summary.nextRoundIncome} ¤</b>, если работающие узлы останутся доступны.</p>}
-    {summary.lostIncome>0&&<p>Недоступный доход: {summary.lostIncome} ¤. Ремонт не возвращает доход, уже потерянный в этом раунде.</p>}
-   </div>}
+   {t(result&&<ul>{t(result.lines.map((line,index)=><li key={index}>{t(line)}</li>))}</ul>)}
+   {t(summary&&<div className="turn-feedback-turn"><strong>{t(result?'К началу вашего хода':'Ваша сеть')}</strong>
+    <ul>{t(summary.changes.map((line,index)=><li key={index}>{t(line)}</li>))}</ul>
+    {t(summary.problems.length>0&&<div className="turn-feedback-problems" aria-label={t("Известные проблемы")}>{t(summary.problems.map(problem=><span key={problem}>{t(problem)}</span>))}</div>)}
+    <p>{t("Ожидаемое начисление: ")}<b>+{t(summary.expectedIncome)} ¤</b>{t(" в конце раунда, если ничего не изменится.")}</p>
+    {t(summary.nextRoundIncome!==summary.expectedIncome&&<p>{t("В следующем полном раунде: ")}<b>+{t(summary.nextRoundIncome)} ¤</b>{t(", если работающие узлы останутся доступны.")}</p>)}
+    {t(summary.lostIncome>0&&<p>{t("Недоступный доход: ")}{t(summary.lostIncome)}{t(" ¤. Ремонт не возвращает доход, уже потерянный в этом раунде.")}</p>)}
+   </div>)}
   </div>
  </section>;
 }
