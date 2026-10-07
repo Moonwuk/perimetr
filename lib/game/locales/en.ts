@@ -192,7 +192,7 @@ export const english: Record<string,string> = {
  "Отчёт матча": "Match report",
  "Разобрать матч": "Review match",
  "КОНТУР — кибердуэль": "CONTOUR — cyber duel",
- "Версия 0.5.0 · MoonGameTechnology": "Version 0.5.0 · MoonGameTechnology",
+ "Версия 0.5.1 · MoonGameTechnology": "Version 0.5.1 · MoonGameTechnology",
  "Карточная стратегия о развитии и защите компании. Игровые кредиты не являются деньгами и не имеют денежной стоимости.": "A card strategy game about growing and protecting a company. Game credits are not money and have no monetary value.",
  "Локальные матчи сохраняются только на этом устройстве. Регистрация, реклама, платежи и доступ к контактам, камере, микрофону или геопозиции отсутствуют.": "Local matches are saved only on this device. There are no accounts, ads, payments, or permissions for contacts, camera, microphone or location.",
  "В сетевых матчах сервер хранит название компании, место игрока и состояние комнаты до 24 часов. Игровые события и результаты используются для проверки баланса и ошибок и хранятся до 30 дней. Хозяин может закрыть комнату до начала или после завершения матча. Во время партии выход означает сдачу.": "For online matches, the server stores company names, player seats and room state for up to 24 hours. Game events and results are used to review balance and errors and are retained for up to 30 days. The host can close the room before or after a match. Leaving an active match means surrendering.",

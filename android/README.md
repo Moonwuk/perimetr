@@ -1,6 +1,6 @@
 # Android / RuStore
 
-Нативная Java-оболочка содержит автономную сборку React-игры. Код движка общий с веб-версией; игровые файлы включены в APK. Исходники следующей сборки: `0.5.0`, `versionCode=500`; готовые подписанные APK/AAB в репозитории пока относятся к `0.4.1` и не содержат новых правил. Package ID: `ru.moongametechnology.perimeter`, Android 8.0+ (API 26), target/compile API 36. Нужен актуальный Android System WebView с Chromium 111+.
+Нативная Java-оболочка содержит автономную сборку React-игры. Код движка общий с веб-версией; игровые файлы включены в APK. Текущая версия: `0.5.1`, `versionCode=501`; готовые подписанные APK/AAB в каталоге `release/rustore/builds` относятся к исторической `0.4.1`. Package ID: `ru.moongametechnology.perimeter`, Android 8.0+ (API 26), target/compile API 36. Нужен актуальный Android System WebView с Chromium 111+.
 
 ## Локальная сборка
 
@@ -24,7 +24,9 @@ export PERIMETER_SIGNING_FILE=/absolute/private/path/signing.properties
 
 Без `PERIMETER_SIGNING_FILE` сборка release останавливается. Для разработки используйте `assembleDebug`. Выданный пользователю `perimeter-0.4.1-release.apk` собирался с приватным файлом и проверялся `apksigner`.
 
-Для следующих обновлений увеличить versionCode и сохранить packageName/ключ подписи. Архив ключа и пароли не должны попадать в GitHub. Подготовленный workflow `.github/workflows/android-rustore.yml` запускается вручную; требует секреты PERIMETER_KEYSTORE_BASE64, PERIMETER_STORE_PASSWORD, PERIMETER_KEY_PASSWORD и PERIMETER_KEY_ALIAS. Workflow не публикует приложение в магазин автоматически.
+Для следующих обновлений увеличить versionCode и сохранить packageName/ключ подписи. Архив ключа и пароли не должны попадать в GitHub. Подготовленный workflow `.github/workflows/android-rustore.yml` запускается вручную; требует секреты PERIMETER_KEYSTORE_BASE64, PERIMETER_STORE_PASSWORD, PERIMETER_KEY_PASSWORD и PERIMETER_KEY_ALIAS. Публичные параметры можно передать JSON через `publication_json`; он обрабатывается без вставки значений в shell-команды. Workflow не публикует приложение в магазин автоматически.
+
+Перед магазинной сборкой заполнить [входной JSON](../release/rustore/0.5.1/publication-input.example.json), выполнить `pnpm android:configure PATH`, затем `pnpm android:release`. Проверочная подписанная упаковка при незаполненных адресах выполняется отдельной командой `pnpm android:candidate`; такой кандидат не готов к сетевому релизу.
 
 ## Поведение
 
@@ -43,7 +45,7 @@ export PERIMETER_SIGNING_FILE=/absolute/private/path/signing.properties
 
 После изменения конфига выполнить `pnpm android:web`: Gradle сверяет `perimeter-build.json` с конфигом, чтобы не упаковать старый адрес. Перед магазинной сборкой выполнить `node scripts/check-android-release.mjs`: он проверяет адрес, ссылку на политику, контакт, владельца, рейтинг и соответствие версий. Проверка также включена в ручной release-workflow. Она не заменяет тест APK на телефоне и модерацию.
 
-Для сетевого релиза сервер должен поддерживать Android CORS. Примените серверное обновление до выпуска APK и проверьте матч Android ↔ браузер и Android ↔ Android, потерю связи, возвращение в комнату, её закрытие и метрики. [Материалы кандидата 0.5.0](../release/rustore/0.5.0/README.md).
+Для сетевого релиза сервер должен поддерживать Android CORS. Примените серверное обновление до выпуска APK и проверьте матч Android ↔ браузер и Android ↔ Android, потерю связи, возвращение в комнату, её закрытие и метрики. [Материалы 0.5.1](../release/rustore/0.5.1/README.md).
 
 ## Проверка
 

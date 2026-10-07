@@ -20,8 +20,8 @@ android {
         applicationId 'ru.moongametechnology.perimeter'
         minSdk 26
         targetSdk 36
-        versionCode 500
-        versionName '0.5.0'
+        versionCode 501
+        versionName '0.5.1'
         buildConfigField 'String', 'ONLINE_ORIGIN', groovy.json.JsonOutput.toJson(onlineOrigin)
     }
     signingConfigs {
@@ -67,6 +67,9 @@ tasks.register('verifyWebAssets') {
         def built = new groovy.json.JsonSlurper().parse(manifest)
         if (built.onlineOrigin != onlineOrigin || built.privacyPolicyUrl != (mobileConfig.privacyPolicyUrl ?: '')) {
             throw new GradleException('Mobile configuration changed after the web build. Run pnpm android:web again.')
+        }
+        if (built.versionName != android.defaultConfig.versionName || built.versionCode != android.defaultConfig.versionCode) {
+            throw new GradleException('Android version changed after the web build. Run pnpm android:web again.')
         }
     }
 }
