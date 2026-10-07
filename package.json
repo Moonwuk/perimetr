@@ -15,7 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "android:web": "vite build --config mobile/vite.config.ts",
     "android:debug": "pnpm android:web && cd android && ./gradlew assembleDebug",
-    "android:release": "pnpm android:web && cd android && ./gradlew assembleRelease bundleRelease",
+    "android:release": "pnpm android:check && pnpm android:web && cd android && ./gradlew assembleRelease bundleRelease lintRelease",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "cf:build": "vite build --config cloudflare/vite.config.ts",
     "cf:dev": "pnpm cf:build && wrangler d1 migrations apply perimeter-rooms --local --config cloudflare/wrangler.json && wrangler dev --config cloudflare/wrangler.json",
@@ -26,7 +26,10 @@
     "vps:build": "node scripts/vps-build.mjs",
     "vps:start": "node server/dist/server.mjs",
     "vps:test": "node --experimental-strip-types scripts/vps-smoke.mjs",
-    "vps:package": "pnpm vps:build && node scripts/vps-package.mjs"
+    "vps:package": "pnpm vps:build && node scripts/vps-package.mjs",
+    "android:configure": "node scripts/configure-android-release.mjs",
+    "android:check": "node scripts/check-android-release.mjs",
+    "android:candidate": "pnpm android:web && cd android && ./gradlew assembleRelease bundleRelease lintRelease"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

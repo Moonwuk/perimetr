@@ -1,6 +1,11 @@
 name: Android RuStore release
 on:
   workflow_dispatch:
+    inputs:
+      publication_json:
+        description: 'Public JSON: onlineOrigin, privacyPolicyUrl, supportContact, dataControllerName, ageRating. Empty uses committed config.'
+        required: false
+        type: string
 permissions:
   contents: read
 jobs:
@@ -22,6 +27,13 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Android packages
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Configure publication metadata
+        env:
+          PUBLICATION_JSON: ${{ inputs.publication_json }}
+        run: |
+          if [ -n "$PUBLICATION_JSON" ]; then
+            node -e 'process.stdout.write(process.env.PUBLICATION_JSON)' | node scripts/configure-android-release.mjs
+          fi
       - name: Dependencies and checks
         run: |
           pnpm install --frozen-lockfile
@@ -55,7 +67,11 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease :app:lintRelease
       - name: Verify APK signature
-        run: '"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose android/app/build/outputs/apk/release/app-release.apk'
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/perimeter-signature.txt"
+          cat "$RUNNER_TEMP/perimeter-signature.txt"
+          grep -Fq 'Signer #1 certificate SHA-256 digest: c09aa4339854470cd549b3169e995b8e293b673ba9cdd84f8ad49414b3a6d905' "$RUNNER_TEMP/perimeter-signature.txt"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 android/app/build/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v4
         with:
           name: perimeter-rustore-release
@@ -64,7 +80,7 @@ jobs:
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/mapping/release/mapping.txt
             android/app/build/reports/lint-results-release.html
-            release/rustore/0.5.0/
+            release/rustore/0.5.1/
             release/rustore/icon-512.png
           if-no-files-found: error
       - name: Remove signing material
