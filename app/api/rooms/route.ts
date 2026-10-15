@@ -34,13 +34,14 @@ export async function handleRoomPost(request:Request,admissionLimit?:()=>Promise
   if((b.intent==='create'||b.intent==='join'||b.intent==='find')&&admissionLimit&&!(await admissionLimit()))return json({error:'Слишком много попыток создать комнату или войти. Подождите минуту.'},429,{'Retry-After':'60'});
   if(b.intent==='create'&&b.visibility!==undefined&&b.visibility!=='private'&&b.visibility!=='public')return json({error:'Некорректный тип комнаты.'},400);
   if(b.intent==='find'&&b.excludeCode!==undefined&&(typeof b.excludeCode!=='string'||!codePattern.test(b.excludeCode)))return json({error:'Некорректный код комнаты.'},400);
+  if((b.intent==='create'||b.intent==='find')&&b.ruleset!==undefined&&b.ruleset!=='standard')return json({error:'Неизвестные правила матча.'},400);
   if(b.intent==='create'){
    const secret=typeof b.seatToken==='string'?b.seatToken:token(),hostHash=await hash(secret);
    const existing=await db.prepare('SELECT * FROM rooms WHERE host_hash = ? AND expires_at > ?').bind(hostHash,Date.now()).first<Row>();
    if(existing)return json({...payload(existing,upgradeGame(JSON.parse(existing.state)),0),token:secret});
    const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',bytes=crypto.getRandomValues(new Uint8Array(7));
    const code=Array.from(bytes,n=>alphabet[n%alphabet.length]).join(''),seed=crypto.getRandomValues(new Uint32Array(1))[0];
-   const g=newGame('online',[playerName(b.name,'Оператор 01'),'Оператор 02'],seed);
+   const g=newGame('online',[playerName(b.name,'Оператор 01'),'Оператор 02'],seed,'standard');
    await db.batch([db.prepare('DELETE FROM rooms WHERE expires_at <= ?').bind(Date.now()),db.prepare('INSERT OR IGNORE INTO rooms (code,state,host_hash,guest_hash,revision,expires_at,host_seen_at,visibility) VALUES (?,?,?,NULL,0,?,?,?)').bind(code,JSON.stringify(g),hostHash,Date.now()+24*60*60*1000,Date.now(),b.visibility==='public'?'public':'private')]);
    const saved=await db.prepare('SELECT * FROM rooms WHERE host_hash = ? AND expires_at > ?').bind(hostHash,Date.now()).first<Row>();
    if(!saved)return json({error:'Не удалось создать комнату. Повторите попытку: место не потеряется.'},503);
@@ -57,7 +58,7 @@ export async function handleRoomPost(request:Request,admissionLimit?:()=>Promise
    const recovered=await recover();if(recovered)return recovered;
    for(let attempt=0;attempt<5;attempt++){
     const now=Date.now();
-    const candidate=await db.prepare("SELECT * FROM rooms WHERE visibility = 'public' AND guest_hash IS NULL AND expires_at > ? AND host_seen_at >= ? AND host_hash != ? AND code != ? AND json_extract(state, '$.status') = 'waiting' ORDER BY host_seen_at DESC, code LIMIT 1").bind(now,now-availableFor,guestHash,b.excludeCode??'').first<Row>();
+    const candidate=await db.prepare("SELECT * FROM rooms WHERE visibility = 'public' AND guest_hash IS NULL AND expires_at > ? AND host_seen_at >= ? AND host_hash != ? AND code != ? AND json_extract(state, '$.status') = 'waiting' AND COALESCE(json_extract(state, '$.ruleset'), 'baseline') = ? ORDER BY host_seen_at DESC, code LIMIT 1").bind(now,now-availableFor,guestHash,b.excludeCode??'','standard').first<Row>();
     if(!candidate)break;
     const game=upgradeGame(JSON.parse(candidate.state));
     game.players[1].name=playerName(b.name,'Оператор 02');game.status=game.players.every(p=>p.ready)?'playing':'setup';if(game.status==='playing'){game.turn=game.firstPlayer;game.startedAt=now;}
@@ -128,7 +129,7 @@ export async function handleRoomPost(request:Request,admissionLimit?:()=>Promise
    if(updated.meta.changes!==1){const latest=await readRoom(row.code);return json({error:'Соперник вернулся или матч уже обновился. Поле обновлено.',...(latest?payload(latest,upgradeGame(JSON.parse(latest.state)),actor):{})},409);}
    row.revision++;row[ownField]=now;await recordDisconnectMetric(row,g,next,actor);return json(payload(row,next,actor));
   }
-  const action=b.action as Action;if(!action||typeof action!=='object'||!['card','scan','investigate','isolate','restore','cleanse','draw','exchange','deploy','end','surrender','reserve','rematch'].includes(action.type)){await recordErrorMetric(row,g,actor,'invalid_action');return json({error:'Некорректное игровое действие.'},400);}
+  const action=b.action as Action;if(!action||typeof action!=='object'||!['card','scan','investigate','isolate','restore','cleanse','draw','exchange','deploy','end','surrender','reserve','rematch','contract','route','resolve'].includes(action.type)){await recordErrorMetric(row,g,actor,'invalid_action');return json({error:'Некорректное игровое действие.'},400);}
   let next:Game;try{next=applyAction(g,actor,action);}catch(e){await recordErrorMetric(row,g,actor,'action_rejected');return json({error:e instanceof Error?e.message:'Невозможно выполнить действие.'},400);}
   const ownField=actor===0?'host_seen_at':'guest_seen_at',now=Date.now();
   if(g.status!=='playing'&&next.status==='playing')next.startedAt=now;

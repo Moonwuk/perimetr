@@ -25,11 +25,11 @@ export function NodeActions({view,node,coordinate,busy,onAction,onClear,onDetail
  };
  return <section className="node-actions" aria-label={t("Действия узла")} data-node-actions={node}>
   <div className="node-actions-heading">
-   <div className="node-identity"><Icon size={28}/><div><strong>{t(coordinate)} · {t(nameOf(node))}</strong><span className={broken?'node-warning':''}>{t(broken?<><TriangleAlert size={15}/>{t(state.isolated?'Узел изолирован':'Сервис отключён')}</>:state.detected?'Обнаружен чужой доступ':'Узел работает')}</span></div></div>
+   <button type="button" className="node-identity" onClick={onDetails} aria-label={t('Об узле')}><Icon size={28}/><div><strong>{t(coordinate)} · {t(nameOf(node))}</strong><span className={broken?'node-warning':''}>{t(broken?<><TriangleAlert size={15}/>{t(state.isolated?'Узел изолирован':'Сервис отключён')}</>:state.detected?'Обнаружен чужой доступ':view.ruleset==='standard'?'Контракт и связи →':'Узел работает')}</span></div></button>
    {t(renderAction(actions[0],true))}
    <button className="table-icon" onClick={onClear} aria-label={t("Отменить выбор")}><X size={18}/></button>
   </div>
   <div className="node-actions-secondary">{t(actions.slice(1).map(item=>renderAction(item)))}</div>
-  <div className="node-actions-note"><Info size={14}/><span>{t(state.detected?'Очистите чужой доступ перед восстановлением связи.':state.interrupted&&state.income>0?'Ремонт включит узел, но не вернёт потерянный доход.':'Действия узла не требуют карт и кредитов.')}</span><button onClick={onDetails}>{t("Об узле")}</button></div>
+  <div className="node-actions-note"><Info size={14}/><span>{t(state.detected?'Очистите чужой доступ перед восстановлением связи.':state.interrupted&&state.income>0?'Ремонт включит узел, но не вернёт потерянный доход.':'Действия узла не требуют карт и кредитов.')}</span><button onClick={onDetails}>{t("Подробнее")}</button></div>
  </section>;
 }

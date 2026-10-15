@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {newGame,applyAction,viewGame,actionStatus,cardReadiness,botAction,deploymentOf,scanArea,incomeOf,upgradeGame,CARDS,MONEY_GOAL,MAX_ROUNDS,BASE_INCOME,planAttacks} from '../lib/game/engine.ts';
 const card=(card,node,side='enemy')=>({type:'card',card,node,side});
 const end=g=>applyAction(g,g.turn,{type:'end'});
-function ready(seed=12){let g=newGame('local',undefined,seed);for(let actor=0;actor<2;actor++)g=applyAction(g,actor,{type:'deploy',deployment:deploymentOf(g.players[actor])});return g;}
+function ready(seed=12){let g=newGame('local',undefined,seed,'baseline');for(let actor=0;actor<2;actor++)g=applyAction(g,actor,{type:'deploy',deployment:deploymentOf(g.players[actor])});return g;}
 function prepare(g,actor,cards){g.players[actor].hand=[...cards];g.players[actor].money=1000;g.ap=3;g.turn=actor;}
 function reveal(g,actor,id){const cell=g.players[1-actor].layout[id];if(!g.players[actor].scanned.includes(cell))g.players[actor].scanned.push(cell);}
 
@@ -140,7 +140,7 @@ test('bot sees only public information and simulated duels stay legal and finish
 
 test('new games start with two cards of each kind; draws alternate while alternatives exist',()=>{
  for(let seed=1;seed<=40;seed++){
-  const g=newGame('local',undefined,seed),p=g.players[0];
+  const g=newGame('local',undefined,seed,'baseline'),p=g.players[0];
   for(const kind of ['attack','defense','economy']){assert.equal(p.hand.filter(c=>CARDS[c].kind===kind).length,2);assert.equal(p.deck.filter(c=>CARDS[c].kind===kind).length,12);}
   assert.deepEqual(p.hand,g.players[1].hand);assert.deepEqual(p.deck,g.players[1].deck);
   for(let i=1;i<p.deck.length;i++)assert.notEqual(CARDS[p.deck[i-1]].kind,CARDS[p.deck[i]].kind);

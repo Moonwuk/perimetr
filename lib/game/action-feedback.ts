@@ -1,3 +1,4 @@
+import {SEGMENT_PENALTY} from './experiments.ts';
 import {BASE_INCOME,CARDS,COUNTER_LABELS,NODES,actionStatus,incomeOf,nameOf,type Action,type CardKind,type NodeId,type NodeState,type View} from './engine.ts';
 
 export type ActionFeedback={id:string;viewer:number;title:string;kind:CardKind|'normal';lines:string[];spent:number;apSpent:number;blocked:boolean};
@@ -13,14 +14,14 @@ export function describeAction(before:View,action:Action,after:View):ActionFeedb
  if(['end','deploy','surrender','rematch'].includes(action.type))return null;
  const viewer=before.viewer,me=after.players[viewer],oldMe=before.players[viewer],enemy=after.players[1-viewer],oldEnemy=before.players[1-viewer];
  const card=action.type==='card'?action.card:null;
- const id='node' in action?action.node:undefined;
+ const id='node' in action?action.node:action.type==='resolve'?before.players[before.viewer].prepared?.node:undefined;
  const own='side' in action&&action.side==='own';
  const node=id?(own?me:enemy).nodes[id]:null,oldNode=id?(own?oldMe:oldEnemy).nodes[id]:null;
  const target=id?nameOf(id):'Узел';
  const cashLost=Math.max(0,oldEnemy.money-enemy.money);
- const blocked=!!card&&!!node&&!!oldNode&&(
+ const blocked=(!!card||action.type==='resolve')&&!!node&&!!oldNode&&(
   card==='ddos'&&!node.offline&&(node.shield<oldNode.shield||oldEnemy.reserve!==null&&enemy.reserve===null)||
-  card==='operation'&&!node.offline&&(oldNode.backup&&!node.backup||oldEnemy.reserve!==null&&enemy.reserve===null)||
+  (card==='operation'||action.type==='resolve')&&!node.offline&&(oldNode.backup&&!node.backup||oldEnemy.reserve!==null&&enemy.reserve===null)||
   (card==='phishing'||card==='fraud')&&(node.auth<oldNode.auth||oldEnemy.reserve!==null&&enemy.reserve===null)
  );
  const stolen=card==='fraud'&&!blocked?cashLost:0;
@@ -32,7 +33,13 @@ export function describeAction(before:View,action:Action,after:View):ActionFeedb
   if(node?.detected&&node.access>0)line('Обнаруженный чужой доступ остаётся. Нужна очистка.');
  };
  if(blocked){result.title='Атака отражена';line(`${target}: защита сработала. Казна и доход соперника сохранены.`);}
- else if(card==='ddos'||card==='operation'){
+ else if(card==='operation'&&me.prepared){
+  result.title='Саботаж подготовлен';line(`${target}: защитник получил сигнал. Завершите операцию на следующем своём ходу.`);
+ }else if(action.type==='contract'){
+  result.title='Контракт принят';line('Цель раскрыта сопернику. Сохраните сервис без простоя два полных раунда после текущего.');
+ }else if(action.type==='route'){
+  result.title=action.closed?'Связь закрыта':'Связь открыта';line(action.closed?'Боковое движение по связи запрещено. Доход компании снижен на 20 за раунд.':'Маршрут снова доступен. Штраф к доходу снят.');
+ }else if(card==='ddos'||card==='operation'||action.type==='resolve'){
   result.title=node?.offline?`${target}: сервис остановлен`:'Атака выполнена';
   const lost=Math.max(0,liveIncome(oldNode)-liveIncome(node));
   line(`У соперника: −${cashLost} ¤ из казны; −${lost} ¤ дохода за этот раунд.`);
@@ -89,7 +96,7 @@ export function summarizeTurn(previous:View|null,current:View):TurnSummary|null{
  const me=current.players[current.viewer];
  const old=previous&&previous.viewer===current.viewer&&previous.matchNumber===current.matchNumber?previous.players[current.viewer]:null;
  const changes:string[]=[],problems:string[]=[];
- let lostIncome=0,nextRoundIncome=BASE_INCOME;
+ let lostIncome=0,nextRoundIncome=Math.max(0,BASE_INCOME-(me.closedLink?SEGMENT_PENALTY:0));
  for(const {id} of activeNodes(current)){
   const node=me.nodes[id]!,prior=old?.nodes[id],label=nameOf(id as NodeId);
   if(!node.offline&&!node.isolated)nextRoundIncome+=node.income;

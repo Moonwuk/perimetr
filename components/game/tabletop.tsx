@@ -1,4 +1,5 @@
 'use client';
+import {RULESETS} from '@/lib/game/experiments';
 import {t} from '@/lib/game/translate';
 
 import {useRef,useState,type ReactNode} from 'react';
@@ -12,7 +13,7 @@ import {useCardDrag,type CardDragPoint as DragPoint} from './use-card-drag';
 import {trackMetric} from '@/lib/game/metrics';
 import {CARDS,NODES,MAX_ROUNDS,MONEY_GOAL,actionStatus,cardReadiness,coordinate,incomeOf,type Action,type CardId,type CardKind,type Side,type View} from '@/lib/game/engine';
 
-export type TableDetail='card'|'node'|'log'|'finance'|'exchange'|'menu'|'reserve'|'room'|'guide';
+export type TableDetail='card'|'node'|'log'|'finance'|'exchange'|'menu'|'reserve'|'room'|'guide'|'experiment';
 type Props={
  view:View;card:CardId|null;selection:Selection|null;side:Side;category:CardKind|'all';busy:boolean;online?:boolean;connection?:string;opponentStatus?:string;
  feedback?:ReactNode;hasFeedback?:boolean;recovery?:ReactNode;
@@ -69,7 +70,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
  return <main ref={tableRef} className={`tabletop ${!card&&node&&selection?.side==='own'?'has-node-actions':''} ${drag?'card-is-dragging':''}`} aria-label={t("Игровой стол")}>
   <header className="table-toolbar"><span className="table-brand"><Network size={26}/>{t("КОНТУР")}</span>
    <button className="table-icon" onClick={()=>onDetails('menu')} aria-label={t("Меню матча")}><Menu size={20}/></button>
-   <strong className={myTurn?'your-turn':''}>{t(turnLabel)}</strong>
+   {view.ruleset&&view.ruleset!=='baseline'&&<button className="experiment-notice desktop-experiment-notice" onClick={()=>onDetails('experiment')}>{t(view.ruleset==='standard'?'Сеть и задачи':RULESETS[view.ruleset].name)}{enemy.prepared&&<strong> · {t("Готовится саботаж вашей сети")}</strong>}{me.prepared&&<strong> · {t("Есть подготовленная операция")}</strong>}</button>}<strong className={myTurn?'your-turn':''}>{t(turnLabel)}</strong>
    {t(online&&<button className="table-pause" onClick={onPause??(()=>onDetails('room'))} disabled={busy||!!view.pause}><Pause size={16}/><span>{t("Пауза")}</span></button>)}
    {t(online&&<button className={`table-icon connection-icon ${connection==='Подключено'?'connected':'disconnected'}`} onClick={()=>onDetails('room')} aria-label={t(`Комната: ${connection}. ${opponentStatus}`)}><Wifi size={18}/></button>)}
   </header>
@@ -103,7 +104,7 @@ export function DuelTable({view,card,selection,side,category,busy,online,connect
     <div className="field-switch" role="group" aria-label={t("Какое поле показать")}><button aria-pressed={side==='enemy'} onClick={()=>onSide('enemy')}><ScanLine size={14}/>{t("Соперник")}</button><button aria-pressed={side==='own'} onClick={()=>onSide('own')}><Shield size={14}/>{t("Моя сеть")}{t(threats>0&&<b>{t(threats)}</b>)}</button></div>
     {t(side==='enemy'?<button className={!card?'active':''} onClick={onClear} aria-label={t("Разведка без карты: 1 действие, 0 кредитов")} aria-pressed={!card}>{t("Скан ")}<small>1 <Zap size={11}/></small></button>:<div className="reserve-tools"><button className={me.reserve?'active':''} onClick={()=>onDetails('reserve')} aria-label={t("Подготовить секретное дежурство")}><Shield size={14}/><span>{t(me.reserve?'Готово':'Дежурство')}</span></button><div className="reserve-quick-actions"><button onClick={()=>onDetails('guide')} aria-label={t("Как сделать ход")}><CircleHelp size={13}/></button><button onClick={()=>onDetails('log')} aria-label={t("Журнал матча")}><Radio size={13}/></button></div></div>)}
    </div>
-   <div className="table-recovery">{t(recovery)}</div>
+   <div className="table-recovery">{t(recovery)}{view.ruleset&&view.ruleset!=='baseline'&&<button className="experiment-notice mobile-experiment-notice" onClick={()=>onDetails('experiment')}>{t(view.ruleset==='standard'?'Сеть и задачи':RULESETS[view.ruleset].name)}{enemy.prepared&&<strong> · {t("Готовится саботаж вашей сети")}</strong>}{me.prepared&&<strong> · {t("Есть подготовленная операция")}</strong>}{me.contract?.status==='active'&&<span> · {t(`Контракт: ${me.contract.completedRounds}/2`)}</span>}</button>}</div>
    <div className="table-boards">{t((['own','enemy'] as const).map(boardSide=><section key={boardSide} className={`table-board-panel board-${boardSide} ${side===boardSide?'active-board':''}`} aria-label={t(boardSide==='own'?'Ваша сеть':'Сеть соперника')}>
     <div className="desktop-board-heading"><span>{t(boardSide==='own'?<Shield size={21}/>:<Network size={21}/>)} {t(boardSide==='own'?'Ваша сеть':'Сеть соперника')}</span>{t(boardSide==='own'?<div className="desktop-reserve-tools"><button className="desktop-reserve-main" onClick={()=>onDetails('reserve')}><Shield size={14}/>{t(me.reserve?'Дежурство готово':'Дежурство')}</button><div className="desktop-reserve-quick"><button onClick={()=>onDetails('guide')} aria-label={t("Как сделать ход")}><CircleHelp size={13}/></button><button onClick={()=>onDetails('log')} aria-label={t("Журнал матча")}><Radio size={13}/></button></div></div>:<button onClick={()=>{onClear();onSide('enemy');}}><ScanLine size={14}/>{t("Разведка")}</button>)}</div>
     <div className="table-field"><GridBoard view={view} side={boardSide} selected={fieldSelection} card={fieldCard} onSelect={onCell} drop={drag?.target?{selection:drag.target,valid:!!dragStatus?.ok}:null}/></div>

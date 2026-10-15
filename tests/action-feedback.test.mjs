@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {newGame,applyAction,deploymentOf,viewGame,incomeOf,CARDS} from '../lib/game/engine.ts';
 import {describeAction,summarizeTurn} from '../lib/game/action-feedback.ts';
 const card=(card,node,side='enemy')=>({type:'card',card,node,side});
-function ready(){let game=newGame('local',undefined,34);for(let actor=0;actor<2;actor++)game=applyAction(game,actor,{type:'deploy',deployment:deploymentOf(game.players[actor])});return game;}
+function ready(){let game=newGame('local',undefined,34,'baseline');for(let actor=0;actor<2;actor++)game=applyAction(game,actor,{type:'deploy',deployment:deploymentOf(game.players[actor])});return game;}
 function prepare(game,actor,cards){game.turn=actor;game.ap=3;game.players[actor].money=1000;game.players[actor].hand=[...cards];game.players[actor].scanned=Object.values(game.players[1-actor].layout);}
 function act(game,action){const before=viewGame(game,game.turn),next=applyAction(game,game.turn,action),after=viewGame(next,before.viewer);return {next,before,after,result:describeAction(before,action,after)};}
 
@@ -84,4 +84,14 @@ test('a supply draw has its own feedback id even when no journal entry was added
  const first=act(game,card('stealth')),second=act(first.next,card('supply'));
  assert.equal(first.after.serial,second.after.serial);assert.notEqual(first.result.id,second.result.id);assert.equal(second.result.apSpent,1);
  assert.match(second.result.lines[0],/Получено карт: 2/);
+});
+
+test('unified sabotage feedback distinguishes preparation, successful resolution and recovery',()=>{
+ for(const recovered of [false,true]){
+  let game=ready();game.ruleset='standard';prepare(game,0,['operation']);game.players[1].nodes.web.access=1;game.players[1].nodes.web.backup=recovered;
+  const prepared=act(game,card('operation','web'));assert.equal(prepared.result.title,'Саботаж подготовлен');assert.equal(prepared.result.spent,40);assert.equal(prepared.result.blocked,false);assert(!prepared.next.players[1].nodes.web.offline);
+  game=applyAction(applyAction(prepared.next,0,{type:'end'}),1,{type:'end'});
+  const resolved=act(game,{type:'resolve'});assert.equal(resolved.result.apSpent,1);assert.equal(resolved.result.spent,0);assert.equal(resolved.result.blocked,recovered);
+  assert.equal(resolved.result.title,recovered?'Атака отражена':'Веб-сервер: сервис остановлен');
+ }
 });

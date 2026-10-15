@@ -434,3 +434,27 @@ test('accepting a pause races safely with an already submitted gameplay action',
  const current=(await get(host.code,host.token)).data;assert.equal(current.revision,5);
  if(current.game.pause?.pausedAt!=null){assert.equal(current.game.turn,0);assert.equal((await move(host.code,5,{type:'end'},host.token)).status,400);}else {assert.equal(current.game.turn,1);assert.equal(current.game.pause.pausedAt,null);}
 });
+
+test('new rooms use unified rules, share one queue and validate combined actions',async()=>{
+ for(const ruleset of ['all','baseline','services','contracts',{services:true}])assert.equal((await post({intent:'create',ruleset})).status,400);
+ db.prepare("UPDATE rooms SET visibility='private'").run();
+ const host=(await post({intent:'create',visibility:'public'})).data;
+ assert.equal(host.game.ruleset,'standard');
+ const guest=(await post({intent:'find'})).data;assert.equal(guest.code,host.code);assert.equal(guest.game.ruleset,'standard');
+ const own=await move(host.code,guest.revision,hostSetup,host.token);
+ const ready=await move(host.code,own.data.revision,guestSetup,guest.token);
+ const accepted=await move(host.code,ready.data.revision,{type:'contract',node:'web'},host.token);
+ assert.equal(accepted.status,200);assert.equal(accepted.data.game.players[0].money,220);
+ const seen=(await get(host.code,guest.token)).data;
+ assert.equal(seen.game.players[0].contract.status,'active');assert.equal(seen.game.players[0].layout.web,0);
+ assert.equal((await move(host.code,ready.data.revision,{type:'contract',node:'database'},host.token)).status,409);
+ const closed=await move(host.code,seen.revision,{type:'route',from:'web',to:'database',closed:true},host.token);
+ assert.equal(closed.status,200);assert.equal(closed.data.game.players[0].money,200);
+ assert.equal(closed.data.game.players[0].contract.status,'active');
+ const again=await move(host.code,closed.data.revision,{type:'route',from:'files',to:'control',closed:true},host.token);
+ assert.equal(again.status,400);
+ const legacy=structuredClone(ready.data.game);legacy.ruleset='contracts';legacy.status='waiting';
+ db.prepare("INSERT INTO rooms (code,host_hash,state,expires_at,revision,visibility,host_seen_at) SELECT 'OLDRULE','legacy-host-for-rules-test',?,expires_at,0,'public',host_seen_at FROM rooms WHERE code=?").run(JSON.stringify(legacy),host.code);
+ // The new queue never admits a player to a saved room with different rules.
+ assert.equal((await post({intent:'find'})).status,404);
+});
