@@ -434,3 +434,23 @@ test('accepting a pause races safely with an already submitted gameplay action',
  const current=(await get(host.code,host.token)).data;assert.equal(current.revision,5);
  if(current.game.pause?.pausedAt!=null){assert.equal(current.game.turn,0);assert.equal((await move(host.code,5,{type:'end'},host.token)).status,400);}else {assert.equal(current.game.turn,1);assert.equal(current.game.pause.pausedAt,null);}
 });
+
+test('room rulesets are validated, isolated in matchmaking and shown to both seats',async()=>{
+ assert.equal((await post({intent:'create',ruleset:'all'})).status,400);
+ assert.equal((await post({intent:'find',ruleset:{services:true}})).status,400);
+ db.prepare("UPDATE rooms SET visibility='private'").run();
+ const base=(await post({intent:'create',visibility:'public'})).data;
+ const experiment=(await post({intent:'create',visibility:'public',ruleset:'contracts'})).data;
+ assert.equal(experiment.game.ruleset,'contracts');
+ const b=await post({intent:'find'});assert.equal(b.data.code,base.code);assert.equal(b.data.game.ruleset,'baseline');
+ const e=await post({intent:'find',ruleset:'contracts'});assert.equal(e.data.code,experiment.code);assert.equal(e.data.game.ruleset,'contracts');
+ assert.equal((await get(experiment.code,experiment.token)).data.game.ruleset,'contracts');
+ const own=await move(experiment.code,e.data.revision,hostSetup,experiment.token);
+ const guest=await move(experiment.code,own.data.revision,guestSetup,e.data.token);
+ const accepted=await move(experiment.code,guest.data.revision,{type:'contract',node:'web'},experiment.token);
+ assert.equal(accepted.status,200);assert.equal(accepted.data.game.players[0].money,220);
+ const seen=(await get(experiment.code,e.data.token)).data;
+ assert.equal(seen.game.players[0].contract.status,'active');assert.equal(seen.game.players[0].layout.web,0);
+ assert.equal((await move(experiment.code,guest.data.revision,{type:'contract',node:'database'},experiment.token)).status,409);
+ assert.equal((await move(experiment.code,seen.revision,{type:'route',from:'web',to:'database',closed:true},experiment.token)).status,400);
+});

@@ -37,3 +37,10 @@ test('compound labels translate their components without truncating effects',()=
  const g=newGame('bot',['A','B'],3);g.status='playing';g.turn=0;g.ap=0;
  assert.doesNotMatch(en(actionStatus(viewGame(g,0),{type:'restore',node:'web',side:'own'}).reason),/[А-Яа-яЁё]/);
 });
+
+test('experiment rules, training and glossary preserve both supported languages',async()=>{
+ const {RULESETS,PLAYTEST_QUESTIONS}=await import('../lib/game/experiments.ts');
+ const {SCENARIOS}=await import('../lib/game/training.ts');
+ const {GLOSSARY}=await import('../lib/game/glossary.ts');
+ for(const s of [...Object.values(RULESETS).flatMap(Object.values),...PLAYTEST_QUESTIONS,...Object.values(SCENARIOS).flatMap(Object.values),...Object.entries(GLOSSARY).flat()])assert.doesNotMatch(en(s),/[А-Яа-яЁё]/,s);
+});

@@ -1,3 +1,6 @@
+import {RULESETS,isRuleset,CONTRACT_COST,CONTRACT_REWARD,SEGMENT_COST,SEGMENT_PENALTY,type Ruleset,type ServiceProfile} from './experiments.ts';
+export {RULESETS,isRuleset,CONTRACT_COST,SEGMENT_COST};
+export type {Ruleset,ServiceProfile};
 export type NodeId = 'web' | 'workstation' | 'database' | 'files' | 'control' | 'service1' | 'service2' | 'service3';
 export type CardId = 'recon' | 'entry' | 'pivot' | 'escalate' | 'operation' | 'shield' | 'patch' | 'sensor' | 'backup' | 'stealth' | 'supply' | 'purge' | 'phishing' | 'fraud' | 'segment' | 'expand' | 'optimize' | 'ddos';
 export type CardKind = 'attack' | 'defense' | 'economy';
@@ -9,7 +12,7 @@ export const MAX_ROUNDS=12;
 export const BASE_INCOME=40;
 export const RESERVE_COST=30;
 export const FRAUD_AMOUNT=80;
-export const isPublicService=(id:NodeId)=>id==='web'||id.startsWith('service');
+export const isPublicService=(id:NodeId,n?:NodeState)=>n?.profile!=='internal'&&(id==='web'||id.startsWith('service'));
 export const hasAccountSurface=(id:NodeId)=>id==='workstation'||id==='control';
 export const NODES: {id:NodeId;name:string;subtitle:string;entry:boolean;x:number;y:number}[] = [
  {id:'web',name:'Веб-сервер',subtitle:'Публичный сервис · 100 за раунд',entry:true,x:21,y:23},
@@ -52,17 +55,22 @@ export const CARDS=Object.assign(originalCards,{
  optimize:{name:'Модернизация',kind:'economy',cost:1,money:120,side:'own',short:'+40 дохода серверу.',detail:'Повышает доход работающего сервера на 40. Максимум два улучшения на узел.',learn:'Доходность критичных активов помогает определить приоритет защиты.',icon:'trend'},
  ddos:{name:'DDoS',kind:'attack',cost:1,money:40,side:'enemy',short:'Сбой, потеря дохода и контрактов.',detail:'Отключает найденный публичный сервис (веб-сервер или новый сервер) до ремонта. Для внутренней базы данных или файлового сервера сначала нужен ваш доступ к этому узлу. Соперник теряет доход этого сервера за раунд и до половины его дохода сразу из казны за срыв контрактов. Анти-DDoS поглощает попытку и теряет один заряд. Защита аккаунтов и план восстановления не помогают.',learn:'DDoS нарушает доступность сервиса. Публичный сервис можно перегрузить извне. В игре та же карта моделирует перегрузку внутреннего узла только после проникновения; это упрощение разных способов отказа в обслуживании.',icon:'zap'},
 }) as Record<CardId,{name:string;kind:'attack'|'defense'|'economy';cost:number;money:number;side:Side|'none';short:string;detail:string;learn:string;icon:string}>;
-export type NodeState = {built:boolean;income:number;upgrades:number;interrupted:boolean;shield:number;auth:number;backup:boolean;sensor:boolean;access:number;detected:boolean;isolated:boolean;offline:boolean};
-export type Player = {reserve:Countermeasure|null;reserveRound:number;name:string;money:number;earned:number;nodes:Record<NodeId,NodeState>;layout:Record<NodeId,number>;scanned:number[];ready:boolean;exchangeRound?:number;drawHistory?:CardKind[];interrupted:boolean;intel:NodeId[];hand:CardId[];deck:CardId[];discard:CardId[];score:number;uptime:number;objectives:string[];quiet:boolean};
+export type NodeState = {profile?:ServiceProfile;parent?:NodeId;decoyRevealed?:boolean;built:boolean;income:number;upgrades:number;interrupted:boolean;shield:number;auth:number;backup:boolean;sensor:boolean;access:number;detected:boolean;isolated:boolean;offline:boolean};
+export type Contract={node:NodeId;acceptedRound:number;completedRounds:number;status:'active'|'completed'|'failed'};
+export type PreparedOperation={node:NodeId;round:number};
+export type ReviewEpisode={round:number;owner:number;text:string};
+export type PlaytestStats={spending:Record<CardKind,number>;cards:Partial<Record<CardId,number>>;exchanges:number;idleTurns:number;meaningful:boolean;fraudAttempts:number;fraudSuccess:number;detectedCleaned:number;responseWindows:number;handAtFinish?:Partial<Record<CardId,number>>};
+const newPlaytestStats=():PlaytestStats=>({spending:{attack:0,defense:0,economy:0},cards:{},exchanges:0,idleTurns:0,meaningful:false,fraudAttempts:0,fraudSuccess:0,detectedCleaned:0,responseWindows:0});
+export type Player = {links?:[NodeId,NodeId][];closedLink?:[NodeId,NodeId]|null;contract?:Contract;contractUsed?:NodeId[];prepared?:PreparedOperation|null;inspected?:NodeId[];reserve:Countermeasure|null;reserveRound:number;name:string;money:number;earned:number;nodes:Record<NodeId,NodeState>;layout:Record<NodeId,number>;scanned:number[];ready:boolean;exchangeRound?:number;drawHistory?:CardKind[];interrupted:boolean;intel:NodeId[];hand:CardId[];deck:CardId[];discard:CardId[];score:number;uptime:number;objectives:string[];quiet:boolean};
 export type LogEntry = {id:number;round:number;text:string;audience:number|'all';tone:'normal'|'attack'|'defense'|'score'};
 export type MatchStats={spent:number;attacks:number;defenses:number;economy:number;blocked:number;stolen:number;cashLost:number};
 const emptyStats=():MatchStats=>({spent:0,attacks:0,defenses:0,economy:0,blocked:0,stolen:0,cashLost:0});
-export type Game = {version:5;firstPlayer:number;matchNumber:number;rematchVotes:number[];stats:[MatchStats,MatchStats];mode:Mode;players:[Player,Player];turn:number;round:number;ap:number;status:'waiting'|'setup'|'playing'|'finished';winner:number|null;startedAt?:number;resumedAt?:number;pause?:{requestedBy:0|1;pausedAt:number|null};finishReason?:'surrender'|'disconnect'|'score';logs:LogEntry[];serial:number;rng:number};
+export type Game = {accessWindows?:Record<string,number>;ruleset?:Ruleset;episodes?:ReviewEpisode[];playtest?:[PlaytestStats,PlaytestStats];version:5;firstPlayer:number;matchNumber:number;rematchVotes:number[];stats:[MatchStats,MatchStats];mode:Mode;players:[Player,Player];turn:number;round:number;ap:number;status:'waiting'|'setup'|'playing'|'finished';winner:number|null;startedAt?:number;resumedAt?:number;pause?:{requestedBy:0|1;pausedAt:number|null};finishReason?:'surrender'|'disconnect'|'score';logs:LogEntry[];serial:number;rng:number};
 export type PauseDecision='request'|'accept'|'decline'|'cancel'|'resume';
 export type Deployment = {layout:number[];shields:number[];sensors:number[];auth?:number[];backups?:number[]};
-export type Action = {type:'card';card:CardId;node?:NodeId;cell?:number;side?:Side}|{type:'scan';cell:number;side:'enemy'}|{type:'investigate'|'isolate'|'restore'|'cleanse';node:NodeId;side:Side}|{type:'deploy';deployment:Deployment}|{type:'exchange';card:CardId;kind:CardKind}|{type:'draw'}|{type:'end'}|{type:'surrender'}|{type:'reserve';counter:Countermeasure}|{type:'rematch'};
+export type Action = {type:'card';card:CardId;node?:NodeId;cell?:number;side?:Side;profile?:ServiceProfile;parent?:NodeId}|{type:'contract';node:NodeId}|{type:'route';from:NodeId;to:NodeId;closed:boolean}|{type:'resolve'}|{type:'scan';cell:number;side:'enemy'}|{type:'investigate'|'isolate'|'restore'|'cleanse';node:NodeId;side:Side}|{type:'deploy';deployment:Deployment}|{type:'exchange';card:CardId;kind:CardKind}|{type:'draw'}|{type:'end'}|{type:'surrender'}|{type:'reserve';counter:Countermeasure}|{type:'rematch'};
 export type PlayerView = Omit<Player,'hand'|'deck'|'discard'|'nodes'|'layout'|'reserve'> & {reserve:Countermeasure|'hidden'|null;nodes:Record<NodeId,NodeState|null>;layout:Partial<Record<NodeId,number>>;hand:CardId[];handCount:number;deckCount:number;discardCount:number;exchangeOptions:Partial<Record<CardId,CardKind[]>>};
-export type View = Omit<Game,'players'|'rng'|'stats'> & {players:[PlayerView,PlayerView];viewer:number;stats?:[MatchStats,MatchStats]};
+export type View = Omit<Game,'players'|'rng'|'stats'|'episodes'|'playtest'|'accessWindows'> & {episodes?:ReviewEpisode[];playtest?:[PlaytestStats,PlaytestStats]} & {players:[PlayerView,PlayerView];viewer:number;stats?:[MatchStats,MatchStats]};
 export type ActionStatus = {ok:boolean;cost:number;reason:string;preview:string};
 const ids=NODES.map(n=>n.id);
 const coreIds=CORE_NODES.map(n=>n.id);
@@ -94,11 +102,12 @@ export function scanArea(cell:number,wide=false):number[]{
  if(!Number.isInteger(cell)||cell<0||cell>=25)return [];
  return Array.from({length:25},(_,i)=>i).filter(i=>{const dx=Math.abs(i%5-cell%5),dy=Math.abs(Math.floor(i/5)-Math.floor(cell/5));return wide?dx<=1&&dy<=1:dx+dy<=1;});
 }
-export function newGame(mode:Mode,names:[string,string]=['Оператор 01','Оператор 02'],seed=Date.now()):Game{
+export function newGame(mode:Mode,names:[string,string]=['Оператор 01','Оператор 02'],seed=Date.now(),ruleset:Ruleset='baseline'):Game{
+ if(!isRuleset(ruleset))throw new Error('Неизвестные правила матча.');
  const r={rng:seed>>>0},opening=shuffle(r,[...initialCore,...shuffle(r,defensePool).slice(0,1)]),ordered=balancedShuffle(r,deck);
  const make=(name:string,index:number):Player=>({name,reserve:null,reserveRound:0,money:300,earned:0,nodes:Object.fromEntries(ids.map((id,i)=>[id,{built:i<5,income:defaultIncome(id),upgrades:0,interrupted:false,shield:id==='web'?1:0,auth:id==='workstation'?1:0,backup:id==='database',sensor:id==='web',access:0,detected:false,isolated:false,offline:false}])) as Player['nodes'],layout:Object.fromEntries(shuffle(r,Array.from({length:25},(_,i)=>i)).slice(0,5).map((cell,i)=>[ids[i],cell])) as Player['layout'],scanned:[],ready:mode==='bot'&&index===1,exchangeRound:0,interrupted:false,intel:[],hand:[...opening],deck:[...ordered],discard:[],score:0,uptime:0,objectives:[],quiet:false});
  const players:[Player,Player]=[make(names[0],0),make(names[1],1)];
- const g:Game={version:5,firstPlayer:0,matchNumber:1,rematchVotes:[],stats:[emptyStats(),emptyStats()],mode,players,turn:0,round:1,ap:3,status:mode==='online'?'waiting':'setup',winner:null,logs:[],serial:0,rng:r.rng};
+ const g:Game={ruleset,episodes:[],playtest:[newPlaytestStats(),newPlaytestStats()],version:5,firstPlayer:0,matchNumber:1,rematchVotes:[],stats:[emptyStats(),emptyStats()],mode,players,turn:0,round:1,ap:3,status:mode==='online'?'waiting':'setup',winner:null,logs:[],serial:0,rng:r.rng};
  log(g,'Разместите пять узлов. Четыре жетона: анти-DDoS, защита аккаунтов, восстановление или датчик.');return g;
 }
 // Upgrade stored rooms without changing layouts, hands, cash, or existing access.
@@ -149,11 +158,26 @@ export function attackSwing(card:CardId,id:NodeId,n:NodeState,enemyMoney:number,
  if(card==='operation')return (n.interrupted?0:n.income)+Math.min(enemyMoney,sabotageAmount(id,n))-CARDS[card].money;
  return -CARDS[card].money;
 }
+export function networkLinks(p:Player|PlayerView):[NodeId,NodeId][]{return p.links??LINKS;}
+export function linkClosed(p:Player|PlayerView,a:NodeId,b:NodeId):boolean{return !!p.closedLink&&p.closedLink.includes(a)&&p.closedLink.includes(b);}
+export function nodeRole(id:NodeId,n:NodeState):string{return n.profile==='internal'?'Внутренний сервис':n.profile==='decoy'?'Сервер-приманка':isPublicService(id,n)?'Публичный сервис':NODES.find(n=>n.id===id)?.subtitle??'Узел';}
+function episode(g:Game,owner:number,text:string){g.episodes??=[];g.episodes.push({round:g.round,owner,text});g.episodes=g.episodes.slice(-60);}
 export function viewGame(g:Game,viewer:number):View{
  if(viewer!==0&&viewer!==1)throw new Error('Неизвестный игрок.');
  const me=g.players[viewer];
- const players=g.players.map((p,i):PlayerView=>({name:p.name,reserve:i===viewer||g.status==='finished'?p.reserve:p.reserve?'hidden':null,reserveRound:p.reserveRound,money:p.money,earned:p.earned,ready:p.ready,exchangeRound:i===viewer?p.exchangeRound??0:0,exchangeOptions:i===viewer?exchangeOptions(p):{},interrupted:p.interrupted,score:p.score,uptime:p.uptime,objectives:[...p.objectives],hand:i===viewer?[...p.hand]:[],handCount:p.hand.length,deckCount:p.deck.length,discardCount:p.discard.length,intel:i===viewer?[...p.intel]:[],scanned:i===viewer?[...p.scanned]:[],quiet:i===viewer?p.quiet:false,layout:Object.fromEntries(ids.filter(id=>p.nodes[id].built&&(i===viewer||me.scanned.includes(p.layout[id]))).map(id=>[id,p.layout[id]])),nodes:Object.fromEntries(ids.map(id=>{if(!p.nodes[id].built||i!==viewer&&!me.scanned.includes(p.layout[id]))return[id,null];const n={...p.nodes[id]};if(i===viewer&&!n.detected)n.access=0;if(i!==viewer)n.detected=false;return[id,n];})) as PlayerView['nodes']})) as [PlayerView,PlayerView];
- return {version:5,firstPlayer:g.firstPlayer,matchNumber:g.matchNumber,rematchVotes:[...g.rematchVotes],...(g.status==='finished'?{stats:structuredClone(g.stats)}:{}),mode:g.mode,turn:g.turn,round:g.round,ap:g.ap,status:g.status,winner:g.winner,...(g.startedAt?{startedAt:g.startedAt}:{}),...(g.resumedAt?{resumedAt:g.resumedAt}:{}),...(g.pause?{pause:{...g.pause}}:{}),...(g.finishReason?{finishReason:g.finishReason}:{}),logs:g.logs.filter(l=>l.audience==='all'||l.audience===viewer),serial:g.serial,players,viewer};
+ const players=g.players.map((p,i):PlayerView=>({name:p.name,reserve:i===viewer||g.status==='finished'?p.reserve:p.reserve?'hidden':null,reserveRound:p.reserveRound,money:p.money,earned:p.earned,ready:p.ready,exchangeRound:i===viewer?p.exchangeRound??0:0,exchangeOptions:i===viewer?exchangeOptions(p):{},interrupted:p.interrupted,score:p.score,uptime:p.uptime,objectives:[...p.objectives],hand:i===viewer?[...p.hand]:[],handCount:p.hand.length,deckCount:p.deck.length,discardCount:p.discard.length,intel:i===viewer?[...p.intel]:[],scanned:i===viewer?[...p.scanned]:[],quiet:i===viewer?p.quiet:false,layout:Object.fromEntries(ids.filter(id=>p.nodes[id].built&&(i===viewer||me.scanned.includes(p.layout[id]))).map(id=>[id,p.layout[id]])),nodes:Object.fromEntries(ids.map(id=>{if(!p.nodes[id].built||i!==viewer&&!me.scanned.includes(p.layout[id]))return[id,null];const n={...p.nodes[id]};if(i!==viewer&&n.profile==='decoy'&&!n.decoyRevealed){n.profile='public';n.income=100;delete n.decoyRevealed;}if(i===viewer&&!n.detected)n.access=0;if(i!==viewer)n.detected=false;return[id,n];})) as PlayerView['nodes']})) as [PlayerView,PlayerView];
+ for(let i=0;i<2;i++){
+  const p=g.players[i],v=players[i],known=(id:NodeId)=>!!v.nodes[id];
+  v.links=networkLinks(p).filter(([a,b])=>known(a)&&known(b)).map(([a,b])=>[a,b]);
+  v.closedLink=p.closedLink&&p.closedLink.every(known)?[...p.closedLink]:null;
+  // A service's selected parent is topology too: conceal it until both endpoints are found.
+  for(const n of Object.values(v.nodes))if(n?.parent&&!known(n.parent))delete n.parent;
+  v.contract=p.contract?{...p.contract}:undefined;
+  v.contractUsed=i===viewer?[...(p.contractUsed??[])]:[];
+  v.prepared=p.prepared?{...p.prepared}:null;
+  v.inspected=i===viewer?[...(p.inspected??[])]:[];
+ }
+ return {ruleset:g.ruleset??'baseline',...(g.status==='finished'?{episodes:(g.episodes??[]).filter(e=>e.owner===viewer).slice(-4),playtest:structuredClone(g.playtest)}:{}),version:5,firstPlayer:g.firstPlayer,matchNumber:g.matchNumber,rematchVotes:[...g.rematchVotes],...(g.status==='finished'?{stats:structuredClone(g.stats)}:{}),mode:g.mode,turn:g.turn,round:g.round,ap:g.ap,status:g.status,winner:g.winner,...(g.startedAt?{startedAt:g.startedAt}:{}),...(g.resumedAt?{resumedAt:g.resumedAt}:{}),...(g.pause?{pause:{...g.pause}}:{}),...(g.finishReason?{finishReason:g.finishReason}:{}),logs:g.logs.filter(l=>l.audience==='all'||l.audience===viewer),serial:g.serial,players,viewer};
 }
 export function actionStatus(v:View,a:Action):ActionStatus{
  let cost=1;const fail=(reason:string):ActionStatus=>({ok:false,cost,reason,preview:''});const ok=(preview:string):ActionStatus=>({ok:true,cost,reason:'',preview});
@@ -181,14 +205,44 @@ export function actionStatus(v:View,a:Action):ActionStatus{
   if(p.money<RESERVE_COST)return fail(`Нужно ${RESERVE_COST} кредитов.`);
   return ok(`${p.reserve?'Заменить текущее дежурство. ':''}Отразить один подходящий удар: ${COUNTER_LABELS[a.counter]}. Вся сеть, без срока действия. Сначала расходуется защита узла. Цена ${RESERVE_COST} и 1 действие.`);
  }
+ if(a.type==='contract'){
+  const n=p.nodes[a.node];
+  if(v.ruleset!=='contracts')return fail('Контракты доступны только в тесте B.');
+  if(!n?.built||n.income<=0||n.offline||n.isolated||n.interrupted)return fail('Нужен работающий доходный сервис без простоя в этом раунде.');
+  if(p.contract?.status==='active')return fail('У вас уже есть активный контракт.');
+  if(p.contractUsed?.includes(a.node))return fail('Этот сервис уже участвовал в контракте.');
+  if(p.money<CONTRACT_COST)return fail(`Нужно ${CONTRACT_COST} кредитов.`);
+  return ok(`Вложить ${CONTRACT_COST}. Два полных раунда после текущего без простоя: выплата ${CONTRACT_REWARD}. Цель и положение станут публичными.`);
+ }
+ if(a.type==='route'){
+  if(v.ruleset!=='segmentation')return fail('Управление связями доступно только в тесте C.');
+  if(typeof a.closed!=='boolean'||a.from===a.to||!p.nodes[a.from]||!p.nodes[a.to]||!networkLinks(p).some(([x,y])=>x===a.from&&y===a.to||y===a.from&&x===a.to))return fail('Выберите существующую связь своей сети.');
+  if(a.closed){if(p.closedLink)return fail('Сначала откройте ранее закрытую связь.');if(p.money<SEGMENT_COST)return fail(`Нужно ${SEGMENT_COST} кредитов.`);}
+  else if(!linkClosed(p,a.from,a.to))return fail('Эта связь уже открыта.');
+  return ok(a.closed?`Закрыть маршрут: ${SEGMENT_COST} кредитов, 1 действие; −${SEGMENT_PENALTY} дохода за раунд. Узлы продолжают работать.`:'Открыть маршрут за 1 действие и вернуть обычный доход.');
+ }
+ if(a.type==='resolve'){
+  if(v.ruleset!=='preparation'||!p.prepared)return fail('Нет подготовленной операции.');
+  if(v.round<=p.prepared.round)return fail('Завершение доступно на следующем вашем ходу — после ответа защитника.');
+  const n=e.nodes[p.prepared.node];
+  if(!n||!n.access||n.offline||n.isolated)return fail('Условия операции утрачены.');
+  return ok('Завершить саботаж за 1 действие: двойной штраф, отключение и расход доступа. Восстановление может отразить удар.');
+ }
  if(a.type==='draw')return p.hand.length>=10?fail('Рука заполнена.'):p.deckCount===0&&p.discardCount===0?fail('Нет карт для добора.'):ok('Добрать одну карту за одно действие.');
  if(a.type==='card'&&a.card==='stealth')return p.quiet?fail('Тихий проход уже подготовлен.'):ok('Следующая атака не вызовет сигнал датчика.');
  if(a.type==='card'&&a.card==='supply')return p.hand.length>=10?fail('Сначала освободите место в руке.'):ok('Добрать две карты.');
  if(a.type==='card'&&a.card==='expand'){
-  if(a.side!=='own')return fail('Выберите своё поле.');if(!Number.isInteger(a.cell)||a.cell!<0||a.cell!>=25)return fail('Выберите свободную клетку своего поля.');if(Object.values(p.layout).includes(a.cell!))return fail('Клетка уже занята.');return ids.filter(id=>id.startsWith('service')).every(id=>p.nodes[id])?fail('Построены все три дополнительных сервера.'):ok('Построить сервер: +100 к доходу за раунд. Новая цель для соперника.');
+  if(a.side!=='own')return fail('Выберите своё поле.');if(!Number.isInteger(a.cell)||a.cell!<0||a.cell!>=25)return fail('Выберите свободную клетку своего поля.');if(Object.values(p.layout).includes(a.cell!))return fail('Клетка уже занята.');
+  const profile=a.profile??'public';
+  if(!['public','internal','decoy'].includes(profile))return fail('Неизвестный профиль сервиса.');
+  if(profile==='internal'&&v.ruleset!=='services'||profile==='decoy'&&v.ruleset!=='decoy')return fail('Профиль недоступен в этих правилах.');
+  if(profile==='internal'&&(!a.parent||!coreIds.includes(a.parent)||!p.nodes[a.parent]?.built))return fail('Выберите один основной узел подключения.');
+  if(profile==='decoy'&&Object.values(p.nodes).some(n=>n?.profile==='decoy'))return fail('Допустима только одна приманка.');
+  if(a.parent!==undefined&&profile!=='internal')return fail('Выбор подключения доступен внутреннему сервису.');
+  return ids.filter(id=>id.startsWith('service')).every(id=>p.nodes[id])?fail('Построены все три дополнительных сервера.'):ok(profile==='decoy'?'Построить приманку: без дохода, максимум одна.':profile==='internal'?'Построить внутренний сервис: +80 дохода; один выбранный маршрут.':`Построить публичный сервис: +${v.ruleset==='services'?120:100} дохода.`);
  }
  if(a.type==='scan'||a.type==='card'&&a.card==='recon'){
-  if(a.side!=='enemy')return fail('Выберите поле соперника.');const area=scanArea(a.cell??-1,a.type==='card');if(!area.length)return fail('Выберите клетку для сканирования.');const count=area.filter(c=>!p.scanned.includes(c)).length;return count?ok(`Раскрыть ${count} новых клеток и типы защиты найденных узлов.`):fail('Эта область уже разведана.');
+  if(a.side!=='enemy')return fail('Выберите поле соперника.');const area=scanArea(a.cell??-1,a.type==='card');if(!area.length)return fail('Выберите клетку для сканирования.');const count=area.filter(c=>!p.scanned.includes(c)).length;const inspect=v.ruleset==='decoy'&&a.type==='card'&&ids.some(id=>e.nodes[id]&&area.includes(e.layout[id]!)&&!p.inspected?.includes(id));return count||inspect?ok(`Раскрыть ${count} новых клеток и типы защиты найденных узлов.`):fail('Эта область уже разведана.');
  }
  if(!('node' in a)||!a.node||!ids.includes(a.node))return fail('Выберите найденный узел.');
  if(a.side!=='own'&&a.side!=='enemy')return fail('Выберите сеть.');
@@ -199,18 +253,19 @@ export function actionStatus(v:View,a:Action):ActionStatus{
  if(!n)return fail('Узел ещё не найден.');
  if(['entry','pivot','phishing','fraud','escalate','operation','ddos'].includes(kind)){
   if(n.isolated||n.offline)return fail('Узел отключён: доступ и сетевые переходы недоступны.');
-  if(kind==='entry'){if(!NODES.find(n=>n.id===id)!.entry)return fail('Технический вход возможен через веб-сервер или рабочую станцию.');if(n.access)return fail('Доступ уже есть. Проведите саботаж или продвигайтесь дальше.');}
+  if(kind==='entry'){if(!(NODES.find(n=>n.id===id)!.entry||(['services','decoy'].includes(v.ruleset??'')&&isPublicService(id,n)))||n.profile==='internal')return fail('Технический вход возможен через веб-сервер или рабочую станцию.');if(n.access)return fail('Доступ уже есть. Проведите саботаж или продвигайтесь дальше.');}
   if(kind==='phishing'&&!hasAccountSurface(id))return fail('Фишинг нацелен на сотрудника: найдите рабочую станцию или службу доступа.');
   if(kind==='phishing'&&n.access)return fail('Доступ уже есть. Повторный фишинг этого узла недоступен до очистки.');
-  if(kind==='pivot'){if(n.access)return fail('Доступ уже получен.');if(!LINKS.some(([x,y])=>{const other=x===id?y:y===id?x:null;const source=other?e.nodes[other]:null;return source&&source.access>0&&!source.isolated&&!source.offline;}))return fail('Нужен доступ к связанному работающему узлу.');}
+  if(kind==='pivot'){if(n.access)return fail('Доступ уже получен.');if(!networkLinks(e).some(([x,y])=>{const other=x===id?y:y===id?x:null;const source=other?e.nodes[other]:null;return !linkClosed(e,x,y)&&source&&source.access>0&&!source.isolated&&!source.offline;}))return fail('Нужен доступ к связанному работающему узлу.');}
   if(kind==='escalate')return n.access===1?ok('Получить права администратора: штраф саботажа +50%.'):fail(n.access===2?'Права уже максимальные.':'Сначала получите обычный доступ.');
   if(kind==='operation'){
    if(n.access<1)return fail('Сначала получите доступ. Права администратора необязательны.');
    if(n.income<=0)return fail('Саботаж возможен на доходном сервере. Для кражи нужна подмена платежа на рабочей станции.');
+   if(v.ruleset==='preparation'){if(p.prepared)return fail('Сначала завершите подготовленную операцию.');return ok('Подготовить саботаж: цель получит сигнал. Завершение за 1 действие на следующем вашем ходу, если доступ сохранится.');}
    return ok(attackCounter('operation',n,e.reserve)?'Аварийное восстановление отразит саботаж и удалит ваш доступ. Деньги и доход соперника сохранятся.':`Саботаж: −${n.interrupted?0:n.income} дохода, −${Math.min(e.money,sabotageAmount(id,n))} из казны соперника. Отключение до ремонта.${secretWarning}`);
   }
   if(kind==='fraud'){if(id!=='workstation')return fail('Платёжная учётная запись находится на рабочей станции.');if(!n.access)return fail('Сначала получите доступ к рабочей станции.');return ok(attackCounter('fraud',n,e.reserve)?'Защита аккаунтов отразит подмену платежа и отзовёт ваш доступ.':`Украсть ${Math.min(FRAUD_AMOUNT,e.money)} кредитов. Доступ расходуется, станция продолжает работать.${secretWarning}`);}
-  if(kind==='ddos'){if(!isPublicService(id)&&!n.access)return fail('Это внутренний узел. Сначала получите доступ к нему или выберите публичный сервис.');if(n.income<=0)return fail('Выберите узел, который приносит доход.');return ok(attackCounter('ddos',n,e.reserve)?'Анти-DDoS отразит удар и потеряет 1 заряд. Деньги и доход соперника сохранятся.':`DDoS: −${n.interrupted?0:n.income} дохода, −${Math.min(e.money,Math.ceil(n.income/2))} за срыв контрактов. Отключение до ремонта.${secretWarning}`);}
+  if(kind==='ddos'){if(!isPublicService(id,n)&&!n.access)return fail('Это внутренний узел. Сначала получите доступ к нему или выберите публичный сервис.');if(n.income<=0)return fail('Выберите узел, который приносит доход.');return ok(attackCounter('ddos',n,e.reserve)?'Анти-DDoS отразит удар и потеряет 1 заряд. Деньги и доход соперника сохранятся.':`DDoS: −${n.interrupted?0:n.income} дохода, −${Math.min(e.money,Math.ceil(n.income/2))} за срыв контрактов. Отключение до ремонта.${secretWarning}`);}
   if(kind==='phishing')return ok(attackCounter('phishing',n,e.reserve)?'Защита аккаунтов отразит фишинг и потеряет 1 заряд. Доступа не будет.':`Получить доступ к учётной записи. Денег не крадёт; владелец увидит сигнал входа.${secretWarning}`);
   return ok(n.income>0?'Получить доступ. Затем можно провести саботаж.':id==='workstation'?'Получить доступ. Затем можно подменить платёж или перейти к связанному узлу.':'Получить доступ к службе доступа. Затем можно перейти к связанным узлам.');
  }
@@ -254,11 +309,11 @@ export function cardReadiness(v:View,card:CardId):ActionStatus & {label:string}{
  if(card==='optimize')return no('Нет цели','Нужен работающий доходный сервер, у которого меньше двух улучшений.');
  return no('Нет цели','На вашей сети сейчас нет подходящего узла. Можно заменить карту.');
 }
-export function applyAction(input:Game,actor:number,a:Action):Game{
+function applyCoreAction(input:Game,actor:number,a:Action):Game{
  const g=structuredClone(upgradeGame(input));if(actor!==0&&actor!==1)throw new Error('Неизвестный игрок.');
  const status=actionStatus(viewGame(g,actor),a);if(!status.ok)throw new Error(status.reason);
  const p=g.players[actor],enemy=g.players[1-actor];
- if(a.type==='rematch'){g.rematchVotes.push(actor);if(g.rematchVotes.length<2)return g;const next=newGame(g.mode,[g.players[0].name,g.players[1].name],g.rng);next.firstPlayer=1-g.firstPlayer;next.matchNumber=g.matchNumber+1;next.status='setup';return next;}
+ if(a.type==='rematch'){g.rematchVotes.push(actor);if(g.rematchVotes.length<2)return g;const next=newGame(g.mode,[g.players[0].name,g.players[1].name],g.rng,g.ruleset);next.firstPlayer=1-g.firstPlayer;next.matchNumber=g.matchNumber+1;next.status='setup';return next;}
  if(a.type==='surrender'){delete g.pause;g.status='finished';g.finishReason='surrender';g.winner=1-actor;log(g,`${p.name} сдаётся. Побеждает ${enemy.name}.`);return g;}
  if(a.type==='deploy'){
   coreIds.forEach((id,i)=>{p.layout[id]=a.deployment.layout[i];p.nodes[id].shield=a.deployment.shields[i];p.nodes[id].sensor=!!a.deployment.sensors[i];p.nodes[id].auth=a.deployment.auth?.[i]??0;p.nodes[id].backup=!!a.deployment.backups?.[i];});p.ready=true;
@@ -267,6 +322,29 @@ export function applyAction(input:Game,actor:number,a:Action):Game{
   return g;
  }
  if(a.type==='end'){endTurn(g);return g;}
+ if(a.type==='contract'){
+  p.money-=CONTRACT_COST;g.ap--;p.contract={node:a.node,acceptedRound:g.round,completedRounds:0,status:'active'};p.contractUsed=[...(p.contractUsed??[]),a.node];
+  if(!enemy.scanned.includes(p.layout[a.node]))enemy.scanned.push(p.layout[a.node]);
+  if(!enemy.intel.includes(a.node))enemy.intel.push(a.node);
+  log(g,`${p.name}: контракт на ${nameOf(a.node)} (${coordinate(p.layout[a.node])}). Вложено ${CONTRACT_COST}, выплата ${CONTRACT_REWARD} после двух полных раундов.`,'all','score');return g;
+ }
+ if(a.type==='route'){
+  p.closedLink=a.closed?[a.from,a.to]:null;g.ap--;if(a.closed)p.money-=SEGMENT_COST;
+  log(g,`${nameOf(a.from)} ↔ ${nameOf(a.to)}: ${a.closed?'маршрут закрыт':'маршрут открыт'}.`,actor,'defense');return g;
+ }
+ if(a.type==='resolve'){
+  const id=p.prepared!.node,n=enemy.nodes[id];p.prepared=null;g.ap--;
+  if(n.backup||enemy.reserve==='backup'){
+   if(n.backup)n.backup=false;else enemy.reserve=null;
+   n.access=0;n.detected=false;g.stats[1-actor].blocked++;
+   log(g,`Восстановление отразило подготовленный саботаж: ${nameOf(id)}.`,'all','defense');
+   episode(g,1-actor,`Подготовленный саботаж ${nameOf(id)} отражён аварийным восстановлением. Доход сохранён.`);
+  }else{
+   const damage=Math.min(enemy.money,2*sabotageAmount(id,n));enemy.money-=damage;g.stats[1-actor].cashLost+=damage;n.offline=true;n.interrupted=true;n.access=0;n.detected=false;
+   log(g,`${p.name}: подготовленный саботаж ${nameOf(id)}. Потеряно ${damage} кредитов, сервис отключён.`,'all','attack');
+   episode(g,1-actor,`После сигнала подготовки в раунде ${input.players[actor].prepared!.round} доступ сохранился. Саботаж отключил ${nameOf(id)} и списал ${damage} кредитов.`);
+  }return g;
+ }
  if(a.type==='exchange'){
   const matches=(c:CardId)=>c!==a.card&&CARDS[c].kind===a.kind;
   const pile=p.deck.some(matches)?p.deck:p.discard,index=pile.findIndex(matches),replacement=pile.splice(index,1)[0];
@@ -280,15 +358,28 @@ export function applyAction(input:Game,actor:number,a:Action):Game{
  if(a.type==='draw'){draw(g,p,1);log(g,'Добрана одна карта.',actor);}
  else if(c==='stealth'){p.quiet=true;log(g,'Подготовлен тихий проход.',actor);}
  else if(c==='supply'){}
- else if(c==='expand'&&'cell' in a){const id=ids.find(id=>id.startsWith('service')&&!p.nodes[id].built)!;p.layout[id]=a.cell!;p.nodes[id].built=true;log(g,`Построен ${nameOf(id)}: +100 к доходу.`,actor,'defense');}
+ else if(c==='expand'&&a.type==='card'){const id=ids.find(id=>id.startsWith('service')&&!p.nodes[id].built)!;p.layout[id]=a.cell!;const n=p.nodes[id];n.built=true;n.profile=a.profile??'public';n.income=n.profile==='decoy'?0:n.profile==='internal'?80:g.ruleset==='services'?120:100;
+  if(n.profile==='internal'){n.parent=a.parent;p.links=networkLinks(p).filter(([x,y])=>x!==id&&y!==id);p.links.push([a.parent!,id]);}
+  log(g,`Построен ${nameOf(id)}: ${nodeRole(id,n)}, +${n.income} к доходу.`,actor,'defense');}
  else if(a.type==='scan'||c==='recon'){
   const cell=('cell' in a?a.cell:0)??0,area=scanArea(cell,!!c);let found=0;
   for(const q of area){if(!p.scanned.includes(q)){p.scanned.push(q);const id=ids.find(id=>enemy.layout[id]===q);if(id){p.intel.push(id);found++;}}}
   log(g,`${coordinate(cell)}: разведка ${area.length} клеток. Новых узлов: ${found}.`,actor);
+  if(c==='recon'&&g.ruleset==='decoy')for(const id of ids)if(enemy.nodes[id].built&&area.includes(enemy.layout[id])){p.inspected=[...new Set([...(p.inspected??[]),id])];if(enemy.nodes[id].profile==='decoy'){enemy.nodes[id].decoyRevealed=true;log(g,`Тщательная разведка: ${nameOf(id)} — приманка.`,actor);}}
   for(const id of ids)if(enemy.nodes[id].built&&area.includes(enemy.layout[id]))log(g,`${nameOf(id)}: ${defenseSummary(enemy.nodes[id])}`,actor);
  }else if('node' in a&&a.node){
   const id=a.node,n=(a.side==='own'?p:enemy).nodes[id],kind=c??a.type,label=`${nameOf(id)} (${coordinate((a.side==='own'?p:enemy).layout[id])})`;
   if(['entry','phishing','fraud','pivot','escalate','operation','ddos'].includes(kind)){
+   if(n.profile==='decoy'&&['entry','pivot'].includes(kind)){
+    n.decoyRevealed=true;g.ap-=status.cost;p.hand.splice(p.hand.indexOf(c!),1);p.discard.push(c!);p.quiet=false;
+    log(g,`Приманка раскрыта: ${label}. Попытка потрачена, доступа нет.`,actor,'attack');
+    log(g,`Приманка ${label}: замечен подход «${CARDS[kind as CardId].name}».`,1-actor,'defense');
+    episode(g,1-actor,`Приманка ${label} привлекла попытку «${CARDS[kind as CardId].name}». Противник потратил действие и карту; доступ не получен.`);return g;
+   }
+   if(kind==='operation'&&g.ruleset==='preparation'){
+    p.prepared={node:id,round:g.round};n.detected=true;g.ap-=status.cost;p.hand.splice(p.hand.indexOf(c!),1);p.discard.push(c!);
+    log(g,`Сигнал: готовится саботаж ${label}. Защитник может очистить доступ, изолировать узел или подготовить восстановление.`,'all','attack');return g;
+   }
    const counter=attackCounter(kind as CardId,n,enemy.reserve);
    if(counter){g.stats[1-actor].blocked++;if(!attackCounter(kind as CardId,n)){enemy.reserve=null;if(counter==='backup'||kind==='fraud'){n.access=0;n.detected=false;}log(g,`${enemy.name}: дежурство отразило «${CARDS[kind as CardId].name}».`,'all','defense');g.ap-=status.cost;p.hand.splice(p.hand.indexOf(c!),1);p.discard.push(c!);return g;}}
    if(kind==='escalate'){n.access=2;log(g,`Получены права администратора: ${label}.`,actor,'attack');}
@@ -323,9 +414,49 @@ export function applyAction(input:Game,actor:number,a:Action):Game{
  if(c){p.hand.splice(p.hand.indexOf(c),1);p.discard.push(c);if(c==='supply')draw(g,p,2);}
  return g;
 }
-export function incomeOf(p:Player|PlayerView,actual=true):number{return BASE_INCOME+Object.values(p.nodes).reduce((sum,n)=>sum+(n?.built&&(!actual||!n.offline&&!n.isolated&&!n.interrupted)?n.income:0),0);}
+/** Records facts, never counterfactual wins. No hidden state is sent during play. */
+export function applyAction(input:Game,actor:number,a:Action):Game{
+ input=upgradeGame(input);
+ const g=applyCoreAction(input,actor,a);
+ if(g.matchNumber!==input.matchNumber)return g;
+ g.playtest??=[newPlaytestStats(),newPlaytestStats()];g.accessWindows??={};
+ const m=g.playtest[actor],p=g.players[actor],before=input.players[actor];
+ if(a.type==='card'){m.cards[a.card]=(m.cards[a.card]??0)+1;m.spending[CARDS[a.card].kind]+=CARDS[a.card].money;}
+ if(a.type==='reserve')m.spending.defense+=RESERVE_COST;
+ if(a.type==='contract')m.spending.economy+=CONTRACT_COST;
+ if(a.type==='route'&&a.closed)m.spending.defense+=SEGMENT_COST;
+ if(a.type==='exchange')m.exchanges++;
+ if(a.type==='card'&&a.card==='fraud'){m.fraudAttempts++;if(g.stats[actor].stolen>input.stats[actor].stolen){m.fraudSuccess++;const noticed=input.accessWindows?.[`${1-actor}:workstation`];if(noticed!==undefined)episode(g,1-actor,`В начале вашего хода раунда ${noticed} доступ к станции уже был обнаружен. Он сохранился до подмены платежа: потеряно ${g.stats[actor].stolen-input.stats[actor].stolen} кредитов.`);}}
+ if(a.type==='end'){if(!m.meaningful)m.idleTurns++;m.meaningful=false;}
+ else if(!['draw','exchange','deploy','rematch','surrender'].includes(a.type))m.meaningful=true;
+ for(const [owner,player] of g.players.entries()){
+  const old=input.players[owner];
+  for(const id of ids){const n=player.nodes[id],prev=old.nodes[id];if(!n.access)delete g.accessWindows[`${owner}:${id}`];
+   if(owner===actor&&prev.detected&&prev.access>0&&!n.access&&['cleanse','card'].includes(a.type))m.detectedCleaned++;
+   if(!prev.interrupted&&n.interrupted&&n.income>0){episode(g,owner,`${nameOf(id)} потерял ${n.income} дохода за раунд из-за ${n.isolated?'изоляции':'сбоя'}. Ремонт не возвращает уже потерянный доход.`);}
+  }
+  const c=player.contract;
+  if(c?.status==='active'&&(player.nodes[c.node].offline||player.nodes[c.node].isolated||player.nodes[c.node].interrupted)){
+   c.status='failed';log(g,`${player.name}: контракт сорван простоем ${nameOf(c.node)}.`,'all','attack');episode(g,owner,`Простой ${nameOf(c.node)} сорвал контракт. Взнос ${CONTRACT_COST} не возвращён; премия не выплачена.`);
+  }
+  const op=player.prepared;
+  if(op){const n=g.players[1-owner].nodes[op.node];if(!n.access||n.offline||n.isolated){player.prepared=null;log(g,`Подготовленный саботаж ${nameOf(op.node)} отменён: доступ или работоспособность утрачены.`,'all','defense');episode(g,1-owner,`Подготовленная операция на ${nameOf(op.node)} отменена после удаления доступа или отключения узла.`);}}
+ }
+ if(a.type==='end'&&g.status==='playing')for(const id of ids){const n=g.players[g.turn].nodes[id];if(n.detected&&n.access>0){g.playtest[g.turn].responseWindows++;g.accessWindows[`${g.turn}:${id}`]??=g.round;}}
+ if(g.status==='finished')for(const [i,player] of g.players.entries())g.playtest[i].handAtFinish=Object.fromEntries([...new Set(player.hand)].map(c=>[c,player.hand.filter(x=>x===c).length]));
+ // Spending is already in legacy stats for cards and reserves.
+ if(a.type==='contract'||a.type==='route')g.stats[actor].spent+=Math.max(0,before.money-p.money);
+ return g;
+}
+export function incomeOf(p:Player|PlayerView,actual=true):number{return Math.max(0,BASE_INCOME-(actual&&p.closedLink?SEGMENT_PENALTY:0)+Object.values(p.nodes).reduce((sum,n)=>sum+(n?.built&&(!actual||!n.offline&&!n.isolated&&!n.interrupted)?n.income:0),0));}
 function endTurn(g:Game){
  if(g.turn!==g.firstPlayer){
+  for(const [owner,p] of g.players.entries()){
+   const c=p.contract;if(c?.status!=='active')continue;
+   const n=p.nodes[c.node];
+   if(n.offline||n.isolated||n.interrupted){c.status='failed';log(g,`${p.name}: контракт сорван простоем ${nameOf(c.node)}.`,'all','attack');}
+   else if(g.round>c.acceptedRound&&++c.completedRounds>=2){c.status='completed';p.money+=CONTRACT_REWARD;episode(g,owner,`Контракт ${nameOf(c.node)} выдержал два полных раунда. Вложено ${CONTRACT_COST}, выплачено ${CONTRACT_REWARD} кредитов.`);log(g,`${p.name}: контракт выполнен, +${CONTRACT_REWARD} кредитов.`,'all','score');}
+  }
   for(const p of g.players){const income=incomeOf(p);p.money+=income;p.earned+=income;log(g,`${p.name}: доход +${income}, в казне ${p.money}.`,'all','score');}
   if(g.players.some(p=>p.money>=MONEY_GOAL)||g.round===MAX_ROUNDS){delete g.pause;g.status='finished';g.finishReason='score';g.winner=g.players[0].money===g.players[1].money?null:g.players[0].money>g.players[1].money?0:1;log(g,g.winner===null?'Ничья.':`Побеждает компания ${g.players[g.winner].name}.`,'all','score');return;}
   g.round++;for(const p of g.players)for(const n of Object.values(p.nodes))n.interrupted=false;
@@ -377,6 +508,12 @@ export function botAction(input:Game|View):Action{
  const options:{action:Action;value:number}[]=[];
  const add=(action:Action,value:number)=>{if(actionStatus(v,action).ok)options.push({action,value});};
  const spending=(value:number,cost:number)=>winNow&&p.money-cost+ownIncome<Math.max(MONEY_GOAL,e.money+enemyIncome)?-1:value;
+ if(v.ruleset==='preparation')add({type:'resolve'},12);
+ if(v.ruleset==='contracts'&&horizon>2)for(const node of ids)add({type:'contract',node},spending(4,CONTRACT_COST));
+ if(v.ruleset==='segmentation'){
+  if(p.closedLink)add({type:'route',from:p.closedLink[0],to:p.closedLink[1],closed:false},Object.values(p.nodes).some(n=>n?.detected)?-1:3);
+  else for(const [from,to] of networkLinks(p))if(p.nodes[from]?.detected||p.nodes[to]?.detected)add({type:'route',from,to,closed:true},1);
+ }
  for(const plan of planAttacks(v)){const cost=plan.action.type==='card'?CARDS[plan.action.card].money:0;add(plan.action,spending(plan.swing/(15*plan.steps),cost));}
  for(const card of new Set(p.hand))if(!cardReadiness(v,card).ok){
   const priorities:CardKind[]=Object.values(p.nodes).some(n=>n?.detected)?['defense','economy','attack']:horizon>2?['economy','attack','defense']:['attack','defense','economy'];
@@ -384,7 +521,7 @@ export function botAction(input:Game|View):Action{
  }
  for(const c of new Set(p.hand)){
   const price=CARDS[c].money;
-  if(c==='expand'){for(let cell=0;cell<25;cell++)add({type:'card',card:c,cell,side:'own'},spending((horizon*100-price)/20,price));continue;}
+  if(c==='expand'){for(let cell=0;cell<25;cell++){add({type:'card',card:c,cell,side:'own'},spending((horizon*(v.ruleset==='services'?120:100)-price)/20,price));if(v.ruleset==='services')add({type:'card',card:c,cell,side:'own',profile:'internal',parent:'control'},spending((horizon*80-price)/20+(ddosPressure?6:0),price));if(v.ruleset==='decoy'&&recent.length)add({type:'card',card:c,cell,side:'own',profile:'decoy'},spending(2,price));}continue;}
   if(c==='recon'){for(let cell=0;cell<25;cell++)add({type:'card',card:c,cell,side:'enemy'},spending(scanArea(cell,true).filter(n=>!p.scanned.includes(n)).length*.26-price/50,price));continue;}
   if(CARDS[c].side==='none'){add({type:'card',card:c},c==='supply'&&p.hand.length<5&&horizon>1?1.3:-1);continue;}
   for(const node of ids){

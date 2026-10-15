@@ -1,5 +1,5 @@
 import { roomDb } from '@/db/rooms';
-import { CARDS, RESERVE_COST, incomeOf, type Action, type CardId, type Game, type PauseDecision } from '@/lib/game/engine';
+import { CARDS, CONTRACT_COST, SEGMENT_COST, RESERVE_COST, incomeOf, type Action, type CardId, type Game, type PauseDecision } from '@/lib/game/engine';
 export const METRICS_RETENTION_DAYS=30;
 export const metricsCutoff=()=>Date.now()-METRICS_RETENTION_DAYS*86_400_000;
 export type MetricRoom={code:string;host_hash:string;visibility:'public'|'private';revision:number};
@@ -16,7 +16,7 @@ function snapshot(db:D1Database,id:string,room:MetricRoom,g:Game,now:number,clos
  WHERE excluded.revision >= metrics_matches.revision AND metrics_matches.status != 'abandoned' AND (metrics_matches.status != 'finished' OR excluded.status = 'finished')`).bind(id,g.matchNumber,room.visibility,room.revision,status,g.round,g.firstPlayer,g.winner,g.players[0].money,g.players[1].money,incomeOf(g.players[0]),incomeOf(g.players[1]),now,now,g.startedAt??(g.status==='playing'?now:null),ended?now:null,ended?(g.finishReason??reason??'finished'):null);
 }
 function event(db:D1Database,id:string,matchId:string,room:MetricRoom,g:Game,actor:number|null,type:string,data:Record<string,unknown>,now:number,source='server'){
- return db.prepare('INSERT OR IGNORE INTO metrics_events (id,match_id,at,source,type,actor,revision,round,data) VALUES (?,?,?,?,?,?,?,?,?)').bind(id,matchId,now,source,type,actor,room.revision,g.round,JSON.stringify(data));
+ return db.prepare('INSERT OR IGNORE INTO metrics_events (id,match_id,at,source,type,actor,revision,round,data) VALUES (?,?,?,?,?,?,?,?,?)').bind(id,matchId,now,source,type,actor,room.revision,g.round,JSON.stringify(source==='server'?{...data,ruleset:g.ruleset??'baseline'}:data));
 }
 export async function recordRoomMetric(room:MetricRoom,g:Game,type:'created'|'joined'|'closed',actor:number){
  await bestEffort(async()=>{const db=roomDb(),id=await metricMatchId(room,g),now=Date.now();await db.batch([snapshot(db,id,room,g,now,type==='closed',type==='closed'?'closed':null),event(db,`${id}:${room.revision}:${type}`,id,room,g,actor,type,{},now)]);});
@@ -25,7 +25,7 @@ export async function recordActionMetric(room:MetricRoom,before:Game,next:Game,a
  await bestEffort(async()=>{
   const db=roomDb(),oldId=await metricMatchId(room,before),newId=await metricMatchId(room,next),now=Date.now();
   const card='card' in action&&Object.prototype.hasOwnProperty.call(CARDS,action.card)?action.card:undefined;
-  const data={action:action.type,...(card?{card}:{}),moneySpent:action.type==='card'?CARDS[action.card].money:action.type==='reserve'?RESERVE_COST:0,moneyDelta:next.players[actor].money-before.players[actor].money,apSpent:action.type==='end'||action.type==='rematch'?0:Math.max(0,before.ap-next.ap)};
+  const data={action:action.type,...(next.status==='finished'?{playtest:next.playtest}:{}),...(card?{card}:{}),moneySpent:action.type==='card'?CARDS[action.card].money:action.type==='reserve'?RESERVE_COST:action.type==='contract'?CONTRACT_COST:action.type==='route'&&action.closed?SEGMENT_COST:0,moneyDelta:next.players[actor].money-before.players[actor].money,apSpent:action.type==='end'||action.type==='rematch'?0:Math.max(0,before.ap-next.ap)};
   const writes=[event(db,`${oldId}:${room.revision}:action`,oldId,room,before,actor,'action',data,now),snapshot(db,newId,room,next,now,false,action.type==='surrender'?'surrender':null)];
   if(oldId!==newId)writes.push(snapshot(db,oldId,room,before,now));
   await db.batch(writes);

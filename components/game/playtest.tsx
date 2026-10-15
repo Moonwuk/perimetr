@@ -1,4 +1,5 @@
 'use client';
+import {RULESETS,PLAYTEST_QUESTIONS} from '@/lib/game/experiments';
 import {t} from '@/lib/game/translate';
 
 import {Shield,KeyRound,RotateCcw,Copy,Wifi,RefreshCw,X,Flag,Pause} from 'lucide-react';
@@ -33,5 +34,5 @@ export function RoomPanel({code,connection,opponentStatus,expiresAt,visibility='
 
 export function matchReport(view:View,code?:string){
  const reason=view.finishReason==='disconnect'?'соперник не вернулся после обрыва связи':view.finishReason==='surrender'||view.logs.some(l=>l.text.includes('сдаётся.'))?'сдача игрока':'сравнение казны';
- return [`КОНТУР 0.5 · тест ${code??view.mode} · матч ${view.matchNumber}`,`Завершение: ${reason}. Раундов: ${view.round}. Первый ход: компания ${view.firstPlayer+1}. Победитель: ${view.winner===null?'ничья':'компания '+(view.winner+1)}.`,...view.players.map((p,i)=>{const s=view.stats?.[i];return `Компания ${i+1}: казна ${p.money}, доход за матч ${p.earned}${s?`, потрачено ${s.spent}; карты и дежурства: атака/защита/экономика ${s.attacks}/${s.defenses}/${s.economy}; отражено ${s.blocked}; украдено ${s.stolen}; потеряно из казны ${s.cashLost}`:''}.`;})].map(line=>t(line)).join('\n');
+ return [`КОНТУР 0.5 · ${RULESETS[view.ruleset??'baseline'].name} · тест ${code??view.mode} · матч ${view.matchNumber}`,`Завершение: ${reason}. Раундов: ${view.round}. Первый ход: компания ${view.firstPlayer+1}. Победитель: ${view.winner===null?'ничья':'компания '+(view.winner+1)}.`,...view.players.map((p,i)=>{const s=view.stats?.[i];return `Компания ${i+1}: казна ${p.money}, доход за матч ${p.earned}${s?`, потрачено ${s.spent}; карты и дежурства: атака/защита/экономика ${s.attacks}/${s.defenses}/${s.economy}; отражено ${s.blocked}; украдено ${s.stolen}; потеряно из казны ${s.cashLost}`:''}.`;}),...view.players.map((_,i)=>{const m=view.playtest?.[i];return m?`Компания ${i+1}: расходы атака/защита/экономика ${m.spending.attack}/${m.spending.defense}/${m.spending.economy}; замены ${m.exchanges}; ходы без содержательного действия ${m.idleTurns}; подмена платежа ${m.fraudSuccess}/${m.fraudAttempts}; очищено обнаруженных доступов ${m.detectedCleaned}; окон ответа ${m.responseWindows}; карты ${JSON.stringify(m.cards)}; остаток руки ${JSON.stringify(m.handAtFinish??{})}.`:'';}),...(view.episodes??[]).map(e=>`Раунд ${e.round}: ${e.text}`),'Вопросы после теста:',...PLAYTEST_QUESTIONS].map(line=>t(line)).join('\n');
 }

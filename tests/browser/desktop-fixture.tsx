@@ -35,7 +35,7 @@ function scenario(){
  if(online){game.mode='online';if(params.get('pause')==='requested')game.pause={requestedBy:0,pausedAt:null};if(params.get('pause')==='agreed')game.pause={requestedBy:0,pausedAt:1_791_289_800_000};}
  return {game,result,approved,online,disconnected:params.get('connection')==='offline'};
 }
-const detailTitles:Record<TableDetail,string>={card:'О карте',node:'Об узле',log:'Журнал операции',finance:'Финансы компании',exchange:'Заменить карту',menu:'Меню матча',reserve:'Секретное дежурство',room:'Комната и связь',guide:'Ваш первый ход'};
+const detailTitles:Record<TableDetail,string>={experiment:'Эксперимент',card:'О карте',node:'Об узле',log:'Журнал операции',finance:'Финансы компании',exchange:'Заменить карту',menu:'Меню матча',reserve:'Секретное дежурство',room:'Комната и связь',guide:'Ваш первый ход'};
 function Fixture(){
  useLanguage();
  const [seed]=useState(scenario),[game,setGame]=useState(seed.game),[card,setCard]=useState<CardId|null>(null),[selection,setSelection]=useState<Selection|null>(seed.approved?null:{cell:7,side:'own'}),[side,setSide]=useState<Side>('own'),[category,setCategory]=useState<CardKind|'all'>('all'),[detail,setDetail]=useState<TableDetail|null>(null),[error,setError]=useState(''),[connected,setConnected]=useState(!seed.disconnected);
