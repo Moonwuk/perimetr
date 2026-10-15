@@ -1,7 +1,7 @@
 import { isAllowedApiOrigin } from '@/lib/server/api-origin';
 import { roomDb } from '@/db/rooms';
 import { recordRoomMetric, recordActionMetric, recordErrorMetric, recordDisconnectMetric, recordPauseMetric } from '@/lib/server/metrics';
-import { isRuleset, newGame, applyAction, viewGame, upgradeGame, type Game, type Action, type PauseDecision } from '@/lib/game/engine';
+import { newGame, applyAction, viewGame, upgradeGame, type Game, type Action, type PauseDecision } from '@/lib/game/engine';
 export const dynamic='force-dynamic';
 type Row={code:string;state:string;host_hash:string;guest_hash:string|null;revision:number;expires_at:number;host_seen_at:number;guest_seen_at:number;visibility:'public'|'private'};
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
@@ -34,14 +34,14 @@ export async function handleRoomPost(request:Request,admissionLimit?:()=>Promise
   if((b.intent==='create'||b.intent==='join'||b.intent==='find')&&admissionLimit&&!(await admissionLimit()))return json({error:'Слишком много попыток создать комнату или войти. Подождите минуту.'},429,{'Retry-After':'60'});
   if(b.intent==='create'&&b.visibility!==undefined&&b.visibility!=='private'&&b.visibility!=='public')return json({error:'Некорректный тип комнаты.'},400);
   if(b.intent==='find'&&b.excludeCode!==undefined&&(typeof b.excludeCode!=='string'||!codePattern.test(b.excludeCode)))return json({error:'Некорректный код комнаты.'},400);
-  if((b.intent==='create'||b.intent==='find')&&b.ruleset!==undefined&&!isRuleset(b.ruleset))return json({error:'Неизвестные правила матча.'},400);
+  if((b.intent==='create'||b.intent==='find')&&b.ruleset!==undefined&&b.ruleset!=='standard')return json({error:'Неизвестные правила матча.'},400);
   if(b.intent==='create'){
    const secret=typeof b.seatToken==='string'?b.seatToken:token(),hostHash=await hash(secret);
    const existing=await db.prepare('SELECT * FROM rooms WHERE host_hash = ? AND expires_at > ?').bind(hostHash,Date.now()).first<Row>();
    if(existing)return json({...payload(existing,upgradeGame(JSON.parse(existing.state)),0),token:secret});
    const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',bytes=crypto.getRandomValues(new Uint8Array(7));
    const code=Array.from(bytes,n=>alphabet[n%alphabet.length]).join(''),seed=crypto.getRandomValues(new Uint32Array(1))[0];
-   const g=newGame('online',[playerName(b.name,'Оператор 01'),'Оператор 02'],seed,isRuleset(b.ruleset)?b.ruleset:'baseline');
+   const g=newGame('online',[playerName(b.name,'Оператор 01'),'Оператор 02'],seed,'standard');
    await db.batch([db.prepare('DELETE FROM rooms WHERE expires_at <= ?').bind(Date.now()),db.prepare('INSERT OR IGNORE INTO rooms (code,state,host_hash,guest_hash,revision,expires_at,host_seen_at,visibility) VALUES (?,?,?,NULL,0,?,?,?)').bind(code,JSON.stringify(g),hostHash,Date.now()+24*60*60*1000,Date.now(),b.visibility==='public'?'public':'private')]);
    const saved=await db.prepare('SELECT * FROM rooms WHERE host_hash = ? AND expires_at > ?').bind(hostHash,Date.now()).first<Row>();
    if(!saved)return json({error:'Не удалось создать комнату. Повторите попытку: место не потеряется.'},503);
@@ -58,7 +58,7 @@ export async function handleRoomPost(request:Request,admissionLimit?:()=>Promise
    const recovered=await recover();if(recovered)return recovered;
    for(let attempt=0;attempt<5;attempt++){
     const now=Date.now();
-    const candidate=await db.prepare("SELECT * FROM rooms WHERE visibility = 'public' AND guest_hash IS NULL AND expires_at > ? AND host_seen_at >= ? AND host_hash != ? AND code != ? AND json_extract(state, '$.status') = 'waiting' AND COALESCE(json_extract(state, '$.ruleset'), 'baseline') = ? ORDER BY host_seen_at DESC, code LIMIT 1").bind(now,now-availableFor,guestHash,b.excludeCode??'',b.ruleset??'baseline').first<Row>();
+    const candidate=await db.prepare("SELECT * FROM rooms WHERE visibility = 'public' AND guest_hash IS NULL AND expires_at > ? AND host_seen_at >= ? AND host_hash != ? AND code != ? AND json_extract(state, '$.status') = 'waiting' AND COALESCE(json_extract(state, '$.ruleset'), 'baseline') = ? ORDER BY host_seen_at DESC, code LIMIT 1").bind(now,now-availableFor,guestHash,b.excludeCode??'','standard').first<Row>();
     if(!candidate)break;
     const game=upgradeGame(JSON.parse(candidate.state));
     game.players[1].name=playerName(b.name,'Оператор 02');game.status=game.players.every(p=>p.ready)?'playing':'setup';if(game.status==='playing'){game.turn=game.firstPlayer;game.startedAt=now;}

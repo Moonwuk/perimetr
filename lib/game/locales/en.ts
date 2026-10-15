@@ -1044,3 +1044,33 @@ Object.assign(english,{
 Object.assign(english,{'Связи':'Links'});
 Object.assign(english,{'В начале вашего хода раунда {0} доступ к станции уже был обнаружен. Он сохранился до подмены платежа: потеряно {1} кредитов.':'At the start of your turn in round {0}, workstation access was already detected. It remained until payment fraud caused a loss of {1} credits.'});
 Object.assign(english,{'Контракт →':'Contract →','Связи →':'Links →'});
+
+// Unified match rules.
+Object.assign(english,{
+ "Правила партии": "Match rules",
+ "Сеть и задачи": "Network and objectives",
+ "Единая партия: публичные и внутренние сервисы, контракты, сегментация, подготовленный саботаж и приманки.": "One match: public and internal services, contracts, segmentation, prepared sabotage and decoys.",
+ "Контракт и связи →": "Contract and links →",
+ "В сохранённой партии контракты недоступны.": "Contracts are unavailable in this saved match.",
+ "В сохранённой партии управление связями недоступно.": "Link control is unavailable in this saved match.",
+ "Публичный, внутренний или приманка.": "Public, internal or decoy.",
+ "Поставьте сервер в свободную клетку и выберите профиль: публичный приносит 120 за раунд и доступен для внешнего входа; внутренний приносит 80 и связан с одним выбранным основным узлом; приманка не приносит дохода и раскрывает попытку проникновения. До трёх серверов, из них максимум одна приманка.": "Build a server in an empty cell and choose a profile: public earns 120 per round and allows external entry; internal earns 80 and connects to one selected core node; a decoy earns nothing and reveals intrusion attempts. Up to three servers, including at most one decoy.",
+ "Подготовка → ответ → завершение.": "Prepare → response → resolve.",
+ "Нужен доступ к доходному серверу. Карта и 40 кредитов подготавливают саботаж и дают защитнику сигнал. На следующем своём ходу завершите за 1 действие: отключение до ремонта и штраф в размере двойного дохода. Админ-доступ усиливает штраф ещё на 50%. Очистка или изоляция цели отменяет подготовку; аварийное восстановление отражает удар. Одновременно готовится одна операция.": "Requires access to an income server. Spend the card and 40 credits to prepare sabotage and warn the defender. On your next turn, resolve for 1 action: shutdown until repair and a cash penalty of twice the income. Administrator access increases the penalty by another 50%. Cleanup or isolation cancels preparation; recovery blocks resolution. One operation at a time.",
+ "Выглядит как публичный сервер до тщательной разведки или попытки проникновения. Не приносит доход и не атакует в ответ.": "Looks like a public server until thorough recon or an entry attempt. Earns nothing and does not counterattack.",
+ "За 3 действия проникните во внутренний сервис и подготовьте саботаж. Передайте ход учебному сопернику и завершите операцию за 1 действие.": "Use 3 actions to enter the internal service and prepare sabotage. Pass to the training opponent, then resolve for 1 action.",
+ "Путь проходит через веб-сервер: вход → боковое движение → подготовка саботажа → ответ защитника → завершение. В этой тренировке защитник пропускает ход. В партии он может очистить доступ, изолировать цель или подготовить восстановление.": "The path goes through the web server: entry → lateral movement → prepare sabotage → defender response → resolution. The training defender passes. In a match, they can clean up access, isolate the target or prepare recovery.",
+ "Сначала подготовьте саботаж за три действия.": "First prepare sabotage using three actions.",
+ "Передать ход учебному сопернику": "Pass to the training opponent",
+ "Завершить саботаж": "Resolve sabotage",
+ "Саботаж подготовлен": "Sabotage prepared",
+ "{0}: защитник получил сигнал. Завершите операцию на следующем своём ходу.": "{0}: the defender received a warning. Resolve the operation on your next turn.",
+ "Контракт принят": "Contract accepted",
+ "Цель раскрыта сопернику. Сохраните сервис без простоя два полных раунда после текущего.": "The target is revealed to your opponent. Keep the service running for two full rounds after this one.",
+ "Связь закрыта": "Link closed",
+ "Связь открыта": "Link open",
+ "Боковое движение по связи запрещено. Доход компании снижен на 20 за раунд.": "Lateral movement across the link is blocked. Company income drops by 20 per round.",
+ "Маршрут снова доступен. Штраф к доходу снят.": "The route is available again. The income penalty is removed.",
+ "DDoS доступен против публичного сервиса; для внутреннего нужен доступ. Саботаж сначала подготавливается и даёт защитнику сигнал. Завершите его отдельным действием на следующем своём ходу, если доступ сохранился. Подмена платежа на рабочей станции срабатывает сразу. Завершённый саботаж и подмена платежа расходуют доступ.": "DDoS can target a public service; an internal service requires access. Sabotage is prepared first and warns the defender. Resolve it with a separate action on your next turn if access remains. Workstation payment fraud happens immediately. Resolved sabotage and payment fraud consume access.",
+ "Новый сервер может быть публичным (+120 дохода), внутренним (+80, одно подключение) или приманкой (без дохода, максимум одна). Нажмите свой доходный узел для контракта: взнос 80, два полных раунда без простоя, выплата 220. Там же можно закрыть одну связь за 20 кредитов и 1 действие: переходы блокируются, доход компании снижается на 20 за раунд. Подготовленный саботаж завершается в панели «Сеть и задачи».": "A new server can be public (+120 income), internal (+80, one connection), or a decoy (no income, at most one). Select your income node for a contract: deposit 80, two full rounds without downtime, payout 220. You can also close one link for 20 credits and 1 action: movement is blocked and company income drops by 20 per round. Resolve prepared sabotage in Network and objectives."
+});

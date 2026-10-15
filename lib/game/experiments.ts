@@ -1,5 +1,6 @@
-/** One isolated hypothesis per match. Baseline remains the default. */
+/** Standard combines every mechanic. Older identifiers only preserve saved matches. */
 export const RULESETS = {
+ standard: {name:'Правила партии',description:'Единая партия: публичные и внутренние сервисы, контракты, сегментация, подготовленный саботаж и приманки.'},
  baseline: {name:'Обычные правила 0.5.1',description:'Контрольная версия для сравнения. Новые механики выключены.'},
  services: {name:'A · Профили сервисов',description:'Новый сервер: публичный (+120) или внутренний (+80). Внутренний подключается к одному выбранному основному узлу.'},
  contracts: {name:'B · Открытый контракт',description:'Вложите 80 кредитов в работающий сервер. Два полных раунда без простоя принесут 220. Один контракт одновременно, каждый сервер — один раз.'},
@@ -8,6 +9,8 @@ export const RULESETS = {
  decoy: {name:'E · Сервер-приманка',description:'Карта нового сервера может создать одну приманку без дохода. Вход тратит темп, но не даёт доступ. Карта разведки распознаёт приманку заранее.'},
 } as const;
 export type Ruleset=keyof typeof RULESETS;
+export type Mechanic='services'|'contracts'|'segmentation'|'preparation'|'decoy';
+export const hasMechanic=(ruleset:Ruleset|undefined,mechanic:Mechanic)=>ruleset==='standard'||ruleset===mechanic;
 export type ServiceProfile='public'|'internal'|'decoy';
 export const isRuleset=(value:unknown):value is Ruleset=>typeof value==='string'&&Object.hasOwn(RULESETS,value);
 export const CONTRACT_COST=80,CONTRACT_REWARD=220,SEGMENT_COST=20,SEGMENT_PENALTY=20;

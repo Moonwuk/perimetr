@@ -5,7 +5,6 @@ type Session={code:string;token:string};
 import {ONLINE_ENABLED,ONLINE_ORIGIN} from './platform';
 import {decodeLocalSave,LOCAL_SAVE_KEY} from './local-save';
 import {configureMetricsSession} from './metrics';
-import type {Ruleset} from './experiments';
 import {roomConnection,type PauseDecision} from './connection';
 type RoomVisibility='private'|'public';
 type RoomData={code:string;revision:number;game:View;token?:string;error?:string;presence:[number,number];serverTime:number;expiresAt:number;visibility?:RoomVisibility;reconnectGraceMs?:number};
@@ -44,7 +43,7 @@ export function useDuel(){
  },[session,accept]);
  useEffect(()=>{if(!game||game.mode!=='bot'||game.turn!==1||game.status!=='playing'||curtain)return;const t=setTimeout(()=>{const current=gameRef.current;if(!current||current.turn!==1||current.status!=='playing')return;const next=applyAction(current,1,current.ap===0?{type:'end'}:botAction(current));gameRef.current=next;setGame(next);},650);return()=>clearTimeout(t);},[game,curtain,setGame]);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3500);return()=>clearTimeout(t);},[notice]);
- const start=(mode:Mode,ruleset:Ruleset='baseline')=>{epoch.current++;setGame(newGame(mode,[mode==='local'?'Компания 01':'Ваша компания',mode==='bot'?'Компания «Вектор»':'Компания 02'],Date.now(),ruleset));setRemote(null);remoteRef.current=null;setSession(null);setCurtain(mode==='local');setError('');};
+ const start=(mode:Mode)=>{epoch.current++;setGame(newGame(mode,[mode==='local'?'Компания 01':'Ваша компания',mode==='bot'?'Компания «Вектор»':'Компания 02'],Date.now()));setRemote(null);remoteRef.current=null;setSession(null);setCurtain(mode==='local');setError('');};
  const home=()=>{epoch.current++;gameRef.current=null;remoteRef.current=null;setGame(null);setRemote(null);setSession(null);setCurtain(false);setBusy(false);lock.current=false;setError('');};
  const act=useCallback(async(action:Action)=>{
   if(lock.current)return {ok:false,error:'Подождите завершения действия.'};
@@ -67,9 +66,9 @@ export function useDuel(){
    finally{if(myEpoch===epoch.current){lock.current=false;setBusy(false);if(uncertain.current)refresh.current();}}}
   const current=gameRef.current;if(!current)return {ok:false,error:'Сначала начните матч.'};try{const actor=current.mode==='local'?current.turn:0,next=applyAction(current,actor,action);gameRef.current=next;setGame(next);if(current.mode==='local'&&next.turn!==current.turn&&next.status!=='finished')setCurtain(true);return {ok:true,game:viewGame(next,actor)};}catch(e){const message=e instanceof Error?e.message:'Ход недоступен.';setError(message);return {ok:false,error:message};}
  },[session,accept,setGame]);
- const openRoom=async(intent:'create'|'join'|'find',name:string,code:string,visibility:RoomVisibility='private',ruleset:Ruleset='baseline')=>{if(lock.current)return false;lock.current=true;setBusy(true);setError('');const myEpoch=epoch.current,excludeCode=intent==='find'?resume?.code:undefined,key=`contour-pending-${intent==='join'||ruleset==='baseline'?'':ruleset+'-'}${intent}-${intent==='join'?code:intent==='find'?(excludeCode||'new'):visibility==='private'?'new':'public'}`;
+ const openRoom=async(intent:'create'|'join'|'find',name:string,code:string,visibility:RoomVisibility='private')=>{if(lock.current)return false;lock.current=true;setBusy(true);setError('');const myEpoch=epoch.current,excludeCode=intent==='find'?resume?.code:undefined,key=`contour-pending-${intent==='join'?'':'standard-'}${intent}-${intent==='join'?code:intent==='find'?(excludeCode||'new'):visibility==='private'?'new':'public'}`;
   try{let secret=pending.current[key];try{secret||=sessionStorage.getItem(key)||'';}catch{}secret||=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');pending.current[key]=secret;try{sessionStorage.setItem(key,secret);}catch{}
-   const body={intent,name,seatToken:secret,...(intent!=='join'?{ruleset}:{}),...(intent==='create'?{visibility}:intent==='join'?{code}:excludeCode?{excludeCode}:{})};
+   const body={intent,name,seatToken:secret,...(intent!=='join'?{ruleset:'standard'}:{}),...(intent==='create'?{visibility}:intent==='join'?{code}:excludeCode?{excludeCode}:{})};
    const {response,data}=await fetchRoom('/api/rooms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(myEpoch!==epoch.current)return false;if(!response.ok)throw new Error(data.error||(intent==='find'?'Свободных открытых комнат пока нет.':'Комната недоступна.'));if(!data.code||!data.token||!data.game)throw new Error('Сервер не подтвердил вход. Повторите попытку: ваш ключ места сохранён.');const s={code:data.code,token:data.token};saveSession(s);delete pending.current[key];try{sessionStorage.removeItem(key);}catch{}uncertain.current=false;setConnection('Подключено');setSession(s);accept(data);setGame(null);setCurtain(false);return true;
   }catch(e){if(myEpoch===epoch.current)setError(e instanceof Error&&e.name!=='AbortError'&&!(e instanceof TypeError)?e.message:'Связь прервалась. Повторите вход: ваш ключ места сохранён.');return false;}finally{if(myEpoch===epoch.current){lock.current=false;setBusy(false);}}};
  const closeRoom=async()=>{

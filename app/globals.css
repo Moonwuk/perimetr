@@ -154,3 +154,5 @@
 @media(min-width:1100px) and (min-height:501px){.mobile-experiment-notice{display:none}.table-toolbar .desktop-experiment-notice{margin-left:auto;max-width:60vw}}
 button.node-identity{border:0;background:none;color:inherit;text-align:left;padding:0;min-height:40px;cursor:pointer}
 button.node-identity:focus-visible{outline:2px solid #b9f96a;outline-offset:2px}
+
+.build-options input[type="radio"] {width:auto;min-width:16px;flex-shrink:0;margin:0;}

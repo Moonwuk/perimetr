@@ -25,7 +25,7 @@ export function NodeActions({view,node,coordinate,busy,onAction,onClear,onDetail
  };
  return <section className="node-actions" aria-label={t("Действия узла")} data-node-actions={node}>
   <div className="node-actions-heading">
-   <button type="button" className="node-identity" onClick={onDetails} aria-label={t(view.ruleset==='contracts'?'Контракт':view.ruleset==='segmentation'?'Связи':'Об узле')}><Icon size={28}/><div><strong>{t(coordinate)} · {t(nameOf(node))}</strong><span className={broken?'node-warning':''}>{t(broken?<><TriangleAlert size={15}/>{t(state.isolated?'Узел изолирован':'Сервис отключён')}</>:state.detected?'Обнаружен чужой доступ':view.ruleset==='contracts'?'Контракт →':view.ruleset==='segmentation'?'Связи →':'Узел работает')}</span></div></button>
+   <button type="button" className="node-identity" onClick={onDetails} aria-label={t('Об узле')}><Icon size={28}/><div><strong>{t(coordinate)} · {t(nameOf(node))}</strong><span className={broken?'node-warning':''}>{t(broken?<><TriangleAlert size={15}/>{t(state.isolated?'Узел изолирован':'Сервис отключён')}</>:state.detected?'Обнаружен чужой доступ':view.ruleset==='standard'?'Контракт и связи →':'Узел работает')}</span></div></button>
    {t(renderAction(actions[0],true))}
    <button className="table-icon" onClick={onClear} aria-label={t("Отменить выбор")}><X size={18}/></button>
   </div>

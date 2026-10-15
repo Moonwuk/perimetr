@@ -11,10 +11,10 @@ const play=(g,a)=>applyAction(g,g.turn,a);
 const end=g=>play(g,{type:'end'});
 const card=(card,node,side='enemy')=>({type:'card',card,node,side});
 
-test('baseline is default; experimental actions and forged profiles are rejected atomically',()=>{
+test('legacy baseline preserves its rules; new games are unified; invalid actions and forged profiles are rejected atomically',()=>{
  const g=fixture('baseline'),snapshot=JSON.stringify(g);
  for(const a of [{type:'contract',node:'web'},{type:'resolve'},{type:'route',from:'web',to:'database',closed:true},{type:'card',card:'expand',side:'own',cell:1,profile:'internal',parent:'control'},{type:'card',card:'expand',side:'own',cell:1,profile:'decoy'},{type:'card',card:'expand',side:'own',cell:1,profile:'constructor'}])assert.throws(()=>play(g,a));
- assert.equal(JSON.stringify(g),snapshot);assert.equal(newGame('bot').ruleset,'baseline');assert.throws(()=>newGame('bot',['A','B'],1,'all'));
+ assert.equal(JSON.stringify(g),snapshot);assert.equal(newGame('bot').ruleset,'standard');assert.throws(()=>newGame('bot',['A','B'],1,'all'));
 });
 
 test('A internal services require a real chosen route; public services trade greater income for entry',()=>{
@@ -108,19 +108,19 @@ test('new summaries remain private during play and debrief is bounded to own fac
  assert(!JSON.stringify(v.episodes).includes('гарант'));
 });
 
-test('experiments persist in a rematch; legacy saves without ruleset stay baseline',()=>{
- let g=fixture('contracts');g=play(g,{type:'surrender'});g=applyAction(g,0,{type:'rematch'});g=applyAction(g,1,{type:'rematch'});assert.equal(g.ruleset,'contracts');assert.equal(g.firstPlayer,1);assert.deepEqual(g.playtest[0].cards,{});
+test('rematches adopt unified rules; unfinished legacy saves stay baseline',()=>{
+ let g=fixture('contracts');g=play(g,{type:'surrender'});g=applyAction(g,0,{type:'rematch'});g=applyAction(g,1,{type:'rematch'});assert.equal(g.ruleset,'standard');assert.equal(g.firstPlayer,1);assert.deepEqual(g.playtest[0].cards,{});
  const legacy=fixture('baseline');delete legacy.ruleset;delete legacy.playtest;delete legacy.episodes;assert.equal(viewGame(legacy,0).ruleset,'baseline');assert.equal(end(legacy).ruleset,undefined);
 });
 
 test('training has executable solutions and independent progress, with no free resets via forbidden actions',()=>{
  let g=trainingGame('response');g=trainingAction(g,{type:'cleanse',node:'workstation',side:'own'});assert(trainingComplete('response',g));
  g=trainingGame('response');g=trainingAction(g,{type:'isolate',node:'workstation',side:'own'});g=trainingAction(g,card('backup','workstation','own'));assert(trainingComplete('response',g));
- g=trainingGame('route');assert.throws(()=>trainingAction(g,card('entry','service1')));for(const [c,node] of [['entry','web'],['pivot','service1'],['operation','service1']])g=trainingAction(g,card(c,node));assert(trainingComplete('route',g));assert.throws(()=>trainingAction(g,{type:'end'}));
+ g=trainingGame('route');assert.throws(()=>trainingAction(g,card('entry','service1')));for(const [c,node] of [['entry','web'],['pivot','service1'],['operation','service1']])g=trainingAction(g,card(c,node));assert(!trainingComplete('route',g));assert.throws(()=>trainingAction(g,{type:'resolve'}));g=trainingAction(g,{type:'end'});g=trainingAction(g,{type:'resolve'});assert(trainingComplete('route',g));assert.throws(()=>trainingAction(g,{type:'end'}));
 });
 
 test('bots complete each isolated experiment with legal visible decisions',()=>{
- for(const rules of ['services','contracts','segmentation','preparation','decoy']){
+ for(const rules of ['standard','services','contracts','segmentation','preparation','decoy']){
   let g=fixture(rules);let steps=0;
   while(g.status==='playing'&&steps++<160){const action=botAction(viewGame(g,g.turn));assert(actionStatus(viewGame(g,g.turn),action).ok);g=play(g,action);}
   assert.equal(g.status,'finished',rules);
@@ -132,4 +132,43 @@ test('baseline debrief distinguishes a prior response window from same-turn frau
  const immediate=play(g,card('fraud','workstation'));assert.equal(immediate.episodes?.length,0);
  g=end(g);assert.equal(viewGame(g,0).accessWindows,undefined);g=end(g);g=play(g,card('fraud','workstation'));g=play(g,{type:'surrender'});
  assert(viewGame(g,0).episodes.some(e=>e.text.includes('до подмены платежа')));assert.equal(g.accessWindows['0:workstation'],undefined);
+});
+
+test('one standard match combines all profiles, contracts, route defense and delayed sabotage',()=>{
+ for(const firstPlayer of [0,1]){
+  let g=fixture('standard',firstPlayer);g.firstPlayer=firstPlayer;
+  const owner=firstPlayer,attacker=1-owner;
+  g.players[owner].hand.push('expand','expand');
+  for(const [cell,profile] of [[1,'internal'],[2,'public'],[3,'decoy']])g=play(g,{type:'card',card:'expand',cell,side:'own',profile,...(profile==='internal'?{parent:'web'}:{})});
+  const own=g.players[owner];assert.deepEqual(['service1','service2','service3'].map(id=>own.nodes[id].income),[80,120,0]);
+  g.players[attacker].scanned.push(1,2,3);g=end(g);
+  const masked=viewGame(g,attacker);assert.equal(masked.players[owner].nodes.service3.income,120);assert.equal(masked.players[owner].nodes.service3.profile,'public');
+  const ordinary=structuredClone(g);ordinary.players[owner].nodes.service3.profile='public';ordinary.players[owner].nodes.service3.income=120;
+  assert.deepEqual(actionStatus(masked,card('entry','service3')),actionStatus(viewGame(ordinary,attacker),card('entry','service3')));
+  g=play(g,card('entry','service3'));assert.equal(g.players[owner].nodes.service3.access,0);
+  // One genuine entry remains available after the decoy consumed the first card.
+  g.players[attacker].hand.push('entry');g=play(g,card('entry','web'));g=end(g);
+  assert.throws(()=>play(g,{type:'contract',node:'service3'}));
+  g=play(g,{type:'contract',node:'service1'});g=play(g,{type:'route',from:'web',to:'service1',closed:true});
+  assert.equal(g.players[owner].contract.status,'active');assert.equal(g.players[owner].nodes.service1.interrupted,false);
+  g=end(g);assert.equal(actionStatus(viewGame(g,attacker),card('pivot','service1')).ok,false);
+  g.players[attacker].hand.push('entry');g=play(g,card('entry','service2'));g=play(g,card('operation','service2'));assert.throws(()=>play(g,{type:'resolve'}));g=end(g);
+  g=play(g,{type:'cleanse',node:'service2',side:'own'});assert.equal(g.players[attacker].prepared,null);
+  g=play(g,{type:'route',from:'web',to:'service1',closed:false});g=end(g);
+  g.players[attacker].hand.push('operation');g=play(g,card('pivot','service1'));g=play(g,card('operation','service1'));g=end(g);
+  // Defender gets a real turn; choosing to pass lets sabotage break the contract.
+  assert.equal(g.turn,owner);assert.equal(g.players[owner].contract.status,'active');g=end(g);
+  const cash=g.players[owner].money;g=play(g,{type:'resolve'});
+  assert.equal(g.players[owner].money,cash-160);assert.equal(g.players[owner].nodes.service1.offline,true);assert.equal(g.players[owner].contract.status,'failed');assert.equal(g.players[attacker].prepared,null);
+ }
+});
+
+test('closing a contracted internal route does not remove existing access; recovery cancels sabotage and preserves payout',()=>{
+ let g=fixture('standard');g=play(g,{type:'card',card:'expand',cell:1,side:'own',profile:'internal',parent:'web'});
+ g=play(g,{type:'contract',node:'service1'});g.players[0].nodes.service1.access=1;g.players[1].scanned.push(1);g=end(g);
+ g=play(g,card('operation','service1'));g=end(g);
+ g=play(g,{type:'route',from:'web',to:'service1',closed:true});assert(g.players[1].prepared);assert.equal(g.players[0].nodes.service1.access,1);
+ g=play(g,card('backup','service1','own'));assert.equal(g.players[1].prepared,null);assert.equal(g.players[0].contract.status,'active');
+ while(g.round<4&&g.status==='playing')g=end(g);
+ assert.equal(g.players[0].contract.status,'completed');assert(g.players[0].closedLink);assert.equal(g.players[0].nodes.service1.offline,false);
 });
